@@ -1,11 +1,26 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { printReceipt } from './receipt'
+import { hashPin, verifyPin } from './auth-util'
+
+// Channels only an authenticated admin may call (enforced in the dispatcher below).
+const ADMIN_CHANNELS = new Set([
+  'settings:set',
+  'users:list', 'users:create', 'users:update', 'users:remove',
+  'categories:create', 'categories:update', 'categories:remove',
+  'products:create', 'products:update', 'products:remove',
+  'tables:create', 'tables:update', 'tables:remove',
+  'orders:cancelPaid', 'orders:updatePaid'
+])
 
 /**
  * Registers every IPC handler. Channels are namespaced "entity:action".
  * Each handler receives a single plain payload object from the renderer.
  */
 export function registerIpc(db) {
+  // In-memory session for this terminal (cleared on logout / app restart).
+  let currentUser = null
+  const publicUser = (u) => (u ? { id: u.id, username: u.username, name: u.name, role: u.role } : null)
+
   // ---- settings (key/value store) ----
   const getSettings = () => {
     const rows = db.prepare('SELECT key, value FROM settings').all()
@@ -38,6 +53,67 @@ export function registerIpc(db) {
   }
 
   const handlers = {
+    // ---------------- Auth ----------------
+    'auth:login': ({ username, pin }) => {
+      const user = db.prepare('SELECT * FROM users WHERE username = ? AND active = 1').get(String(username || '').trim())
+      if (!user || !verifyPin(pin, user.pin_hash)) throw new Error('Invalid username or PIN')
+      currentUser = user
+      return publicUser(user)
+    },
+    'auth:logout': () => {
+      currentUser = null
+      return { ok: true }
+    },
+    'auth:current': () => publicUser(currentUser),
+
+    // Active users for the login picker (names/roles only — no hashes).
+    'auth:users': () => db.prepare("SELECT id, username, name, role FROM users WHERE active = 1 ORDER BY role, username").all(),
+
+    // ---------------- Users (admin) ----------------
+    'users:list': () => db.prepare('SELECT id, username, name, role, active, created_at FROM users ORDER BY role, username').all(),
+
+    'users:create': ({ username, name, pin, role }) => {
+      const uname = String(username || '').trim()
+      if (!uname) throw new Error('Username is required')
+      if (!pin || String(pin).length < 4) throw new Error('PIN must be at least 4 digits')
+      const exists = db.prepare('SELECT id FROM users WHERE username = ?').get(uname)
+      if (exists) throw new Error('That username already exists')
+      const info = db
+        .prepare('INSERT INTO users (username, name, pin_hash, role) VALUES (?, ?, ?, ?)')
+        .run(uname, name || uname, hashPin(pin), role === 'admin' ? 'admin' : 'user')
+      return db.prepare('SELECT id, username, name, role, active FROM users WHERE id = ?').get(info.lastInsertRowid)
+    },
+
+    'users:update': ({ id, name, role, active, pin }) => {
+      const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id)
+      if (!user) throw new Error('User not found')
+      // Don't allow demoting/deactivating the last active admin.
+      const admins = db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'admin' AND active = 1").get().n
+      const losingAdmin = user.role === 'admin' && user.active && (role !== 'admin' || active === 0)
+      if (losingAdmin && admins <= 1) throw new Error('You cannot remove the last administrator')
+      db.prepare('UPDATE users SET name = ?, role = ?, active = ? WHERE id = ?').run(
+        name || user.name,
+        role === 'admin' ? 'admin' : 'user',
+        active ? 1 : 0,
+        id
+      )
+      if (pin) {
+        if (String(pin).length < 4) throw new Error('PIN must be at least 4 digits')
+        db.prepare('UPDATE users SET pin_hash = ? WHERE id = ?').run(hashPin(pin), id)
+      }
+      return db.prepare('SELECT id, username, name, role, active FROM users WHERE id = ?').get(id)
+    },
+
+    'users:remove': ({ id }) => {
+      const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id)
+      if (!user) return { ok: true }
+      if (currentUser && currentUser.id === id) throw new Error('You cannot delete the account you are signed in with')
+      const admins = db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'admin' AND active = 1").get().n
+      if (user.role === 'admin' && user.active && admins <= 1) throw new Error('You cannot delete the last administrator')
+      db.prepare('DELETE FROM users WHERE id = ?').run(id)
+      return { ok: true }
+    },
+
     // ---------------- Settings ----------------
     'settings:get': () => getSettings(),
 
@@ -87,20 +163,21 @@ export function registerIpc(db) {
     'products:byCategory': ({ categoryId }) =>
       db.prepare('SELECT * FROM products WHERE category_id = ? AND active = 1 ORDER BY name').all(categoryId),
 
-    'products:create': ({ category_id, name, price, color }) => {
+    'products:create': ({ category_id, name, price, color, stock }) => {
       const info = db
-        .prepare('INSERT INTO products (category_id, name, price, color) VALUES (?, ?, ?, ?)')
-        .run(category_id, name, price, color || null)
+        .prepare('INSERT INTO products (category_id, name, price, color, stock) VALUES (?, ?, ?, ?, ?)')
+        .run(category_id, name, price, color || null, Math.round(stock || 0))
       return db.prepare('SELECT * FROM products WHERE id = ?').get(info.lastInsertRowid)
     },
 
-    'products:update': ({ id, category_id, name, price, color, active }) => {
-      db.prepare('UPDATE products SET category_id = ?, name = ?, price = ?, color = ?, active = ? WHERE id = ?').run(
+    'products:update': ({ id, category_id, name, price, color, active, stock }) => {
+      db.prepare('UPDATE products SET category_id = ?, name = ?, price = ?, color = ?, active = ?, stock = ? WHERE id = ?').run(
         category_id,
         name,
         price,
         color || null,
         active ? 1 : 0,
+        Math.round(stock || 0),
         id
       )
       return db.prepare('SELECT * FROM products WHERE id = ?').get(id)
@@ -235,7 +312,56 @@ export function registerIpc(db) {
       db.prepare(
         "UPDATE orders SET status = 'paid', cash_received = ?, change_due = ?, paid_at = datetime('now') WHERE id = ?"
       ).run(cash, change, orderId)
+      // Draw down stock for each sold item.
+      const dec = db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?')
+      for (const it of order.items) if (it.product_id) dec.run(it.qty, it.product_id)
       if (order.table_id) db.prepare("UPDATE tables SET status = 'open' WHERE id = ?").run(order.table_id)
+      return getOrderWithItems(orderId)
+    },
+
+    // ---------------- History admin actions ----------------
+    // Cancel a paid order: restore stock and mark it cancelled (drops out of history & analytics).
+    'orders:cancelPaid': ({ orderId }) => {
+      const order = getOrderWithItems(orderId)
+      if (!order) throw new Error('Order not found')
+      if (order.status !== 'paid') throw new Error('Only paid orders can be cancelled')
+      const inc = db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?')
+      for (const it of order.items) if (it.product_id) inc.run(it.qty, it.product_id)
+      db.prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?").run(orderId)
+      return { ok: true }
+    },
+
+    // Edit a paid order's quantities (0 removes a line) and discount; adjusts stock by the delta.
+    'orders:updatePaid': ({ orderId, items, discountType, discountValue }) => {
+      const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId)
+      if (!order || order.status !== 'paid') throw new Error('Order is not editable')
+      const adjust = db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?')
+      for (const change of items || []) {
+        const item = db.prepare('SELECT * FROM order_items WHERE id = ? AND order_id = ?').get(change.id, orderId)
+        if (!item) continue
+        const newQty = Math.max(0, Math.round(change.qty))
+        const delta = item.qty - newQty // positive => return stock
+        if (delta !== 0 && item.product_id) adjust.run(delta, item.product_id)
+        if (newQty === 0) db.prepare('DELETE FROM order_items WHERE id = ?').run(item.id)
+        else db.prepare('UPDATE order_items SET qty = ? WHERE id = ?').run(newQty, item.id)
+      }
+      // Recompute subtotal -> discount -> total, and refresh change.
+      const { subtotal } = db
+        .prepare('SELECT COALESCE(SUM(unit_price * qty),0) AS subtotal FROM order_items WHERE order_id = ?')
+        .get(orderId)
+      let discount = order.discount
+      if (discountType === 'percent') discount = Math.round((subtotal * Number(discountValue)) / 100)
+      else if (discountType === 'amount') discount = Math.round(Number(discountValue))
+      discount = Math.max(0, Math.min(discount, subtotal))
+      const total = subtotal - discount
+      const paidRow = db.prepare('SELECT COALESCE(SUM(amount),0) AS paid FROM payments WHERE order_id = ?').get(orderId)
+      db.prepare('UPDATE orders SET subtotal = ?, discount = ?, total = ?, change_due = ? WHERE id = ?').run(
+        subtotal,
+        discount,
+        total,
+        Math.max(0, paidRow.paid - total),
+        orderId
+      )
       return getOrderWithItems(orderId)
     },
 
@@ -307,7 +433,12 @@ export function registerIpc(db) {
   }
 
   for (const [channel, fn] of Object.entries(handlers)) {
-    ipcMain.handle(channel, async (_event, payload) => fn(payload || {}))
+    ipcMain.handle(channel, async (_event, payload) => {
+      if (ADMIN_CHANNELS.has(channel) && (!currentUser || currentUser.role !== 'admin')) {
+        throw new Error('Administrator access required')
+      }
+      return fn(payload || {})
+    })
   }
 }
 

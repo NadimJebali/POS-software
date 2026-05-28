@@ -84,6 +84,22 @@ export default function Settings() {
           </Field>
         </Section>
 
+        {/* Stock */}
+        <Section title="Stock">
+          <Field label="Low-stock warning threshold">
+            <input
+              className="input tnum"
+              type="number"
+              min={0}
+              value={form.low_stock_threshold}
+              onChange={(e) => set('low_stock_threshold', e.target.value)}
+            />
+          </Field>
+          <p className="text-muted text-sm">
+            Products with stock at or below this number are flagged as low (amber) across the app; a badge on the Menu tab shows how many need restocking. Stock is reduced automatically when a sale is completed and restored if an order is cancelled.
+          </p>
+        </Section>
+
         {/* Currency */}
         <Section title="Currency">
           <div className="grid grid-cols-2 gap-3">

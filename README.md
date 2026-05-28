@@ -3,13 +3,31 @@
 A touchscreen point-of-sale desktop app for restaurants & cafés.
 Built with **Electron + React + Vite + Tailwind** and a local **SQLite** database — runs fully offline on a Windows cash register.
 
+## Accounts & roles
+
+The app opens to a **login screen** (pick your name, enter a PIN). Two roles:
+
+- **Administrator** — full access: manage users, edit settings, manage the menu & tables, and **edit or cancel orders in history**.
+- **Cashier (user)** — day-to-day only: take orders, checkout, view history (+ reprint), and view stats.
+
+Default accounts on first run (**change these in Users / Setup**):
+
+| Username | PIN | Role |
+|----------|------|------|
+| `admin` | `1234` | Administrator |
+| `cashier` | `1111` | Cashier |
+
+PINs are stored hashed (scrypt), never in plain text. Roles are enforced both in the UI and in the backend.
+
 ## Features
 
-- **Categories & products** — create categories (with colors), add products with prices, list view, edit/delete.
+- **Login & user management** — PIN login, admin-managed accounts (create/edit/disable/delete, reset PINs).
+- **Categories & products** — create categories (with colors), add products with prices & stock, list view, edit/delete.
+- **Stock tracking** — per-product stock, drawn down on each completed sale and restored when an order is cancelled. A configurable **low-stock threshold** (Setup) flags low/out items across the app, with a count badge on the Menu tab.
 - **Tables** — add/remove tables by number or reference (from the Floor or the Tables screen), see the floor at a glance (available vs. occupied + running total).
 - **Ordering** — tap a table, browse products by category, add items and adjust quantities on a live ticket.
 - **Checkout** — order total with **discounts** (percentage or fixed), **split / partial payments** (cash + card), automatic **change due**, and receipt printing.
-- **Order history** — browse paid orders by day or all-time, with one-tap **receipt re-print**.
+- **Order history** — browse paid orders by day or all-time, tap a row for full details, one-tap **receipt re-print**, and (admins) **edit quantities/discount or cancel** an order — stock adjusts automatically.
 - **Analytics** — daily / weekly / monthly / yearly earnings, a bar chart, and top products.
 - **Settings** — shop name / address / phone / logo on receipts, configurable **currency** (symbol, decimals, position), and **printer** setup (target printer, silent vs. dialog, 58/80 mm paper).
 
@@ -58,7 +76,7 @@ This produces `release/POS-Software-<version>-setup.exe` — a standard NSIS ins
      & ".\node_modules\7zip-bin\win\x64\7za.exe" x "$c\<any-cached>.7z" "-o$c\winCodeSign-2.6.0" "-x!darwin" -y
      ```
 - **App data** lives in `%APPDATA%/pos-software/pos.db` and survives reinstalls/updates.
-- **App icon:** currently the default Electron icon. Drop a `build/icon.ico` (256×256) to brand it.
+- **App icon:** lives at `build/icon.svg`. Edit it and run `npm run icon` to regenerate `build/icon.png` + `build/icon.ico` (used for the app, installer, and shortcuts), then rebuild.
 
 ## Data
 

@@ -2,6 +2,7 @@ import initSqlJs from 'sql.js'
 import { app } from 'electron'
 import { join } from 'path'
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'fs'
+import { hashPin } from './auth-util'
 
 /**
  * Money is stored everywhere as INTEGER millimes (1 TND = 1000 millimes)
@@ -131,6 +132,16 @@ function migrate(db) {
       value TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS users (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      username   TEXT NOT NULL UNIQUE,
+      name       TEXT,
+      pin_hash   TEXT NOT NULL,
+      role       TEXT NOT NULL DEFAULT 'user',
+      active     INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS payments (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
       order_id   INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -196,8 +207,10 @@ function migrate(db) {
   // Additive column migrations for databases created before these existed.
   addColumnIfMissing(db, 'orders', 'subtotal', 'INTEGER NOT NULL DEFAULT 0')
   addColumnIfMissing(db, 'orders', 'discount', 'INTEGER NOT NULL DEFAULT 0')
+  addColumnIfMissing(db, 'products', 'stock', 'INTEGER NOT NULL DEFAULT 0')
 
   seedSettings(db)
+  seedUsers(db)
 }
 
 function addColumnIfMissing(db, table, column, definition) {
@@ -218,12 +231,22 @@ const DEFAULT_SETTINGS = {
   currency_position: 'after', // 'before' | 'after'
   print_silent: '0',
   printer_name: '',
-  paper_width: '80' // mm: '58' | '80'
+  paper_width: '80', // mm: '58' | '80'
+  low_stock_threshold: '5' // warn when product stock is at or below this
 }
 
 function seedSettings(db) {
   const insert = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)')
   for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) insert.run(key, value)
+}
+
+// Create a default admin (and a sample cashier) on a fresh database.
+function seedUsers(db) {
+  const count = db.prepare('SELECT COUNT(*) AS n FROM users').get().n
+  if (count > 0) return
+  const insert = db.prepare('INSERT INTO users (username, name, pin_hash, role) VALUES (?, ?, ?, ?)')
+  insert.run('admin', 'Administrator', hashPin('1234'), 'admin')
+  insert.run('cashier', 'Cashier', hashPin('1111'), 'user')
 }
 
 function seedIfEmpty(db) {
@@ -251,6 +274,9 @@ function seedIfEmpty(db) {
     insertProd.run(food, 'Margherita Pizza', 14000, null)
     insertProd.run(desserts, 'Tiramisu', 5500, null)
     insertProd.run(desserts, 'Ice Cream', 3500, null)
+
+    // start demo products with some stock on hand
+    db.prepare('UPDATE products SET stock = 40').run()
 
     for (let i = 1; i <= 8; i++) insertTable.run(String(i), 4)
   })

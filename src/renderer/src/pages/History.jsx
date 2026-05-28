@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
 import { money } from '../lib/settings'
+import { useAuth } from '../lib/auth'
 import PageHeader from '../components/PageHeader'
 import Modal from '../components/Modal'
-import { IconPrint } from '../components/icons'
+import { IconPrint, IconEdit, IconTrash } from '../components/icons'
 
 const todayStr = () => {
   const d = new Date()
@@ -11,6 +12,7 @@ const todayStr = () => {
 }
 
 export default function History() {
+  const { isAdmin } = useAuth()
   const [date, setDate] = useState(todayStr())
   const [all, setAll] = useState(false)
   const [orders, setOrders] = useState([])
@@ -23,6 +25,27 @@ export default function History() {
   }, [date, all])
 
   const openDetail = (id) => api.orders.get(id).then(setDetail)
+
+  const cancelOrder = async (id) => {
+    if (!confirm('Cancel this order? It will be removed from history and its stock restored.')) return
+    try {
+      await api.orders.cancelPaid(id)
+      setDetail(null)
+      load()
+    } catch (e) {
+      alert(e.message)
+    }
+  }
+
+  const saveEdits = async (id, items, discountType, discountValue) => {
+    try {
+      const updated = await api.orders.updatePaid(id, items, discountType, discountValue)
+      setDetail(updated)
+      load()
+    } catch (e) {
+      alert(e.message)
+    }
+  }
 
   const total = orders.reduce((s, o) => s + o.total, 0)
 
@@ -107,56 +130,106 @@ export default function History() {
       {detail && (
         <OrderDetail
           order={detail}
+          isAdmin={isAdmin}
           onClose={() => setDetail(null)}
           onReprint={() => reprint(detail.id)}
           printing={printing === detail.id}
+          onCancel={() => cancelOrder(detail.id)}
+          onSave={(items, dt, dv) => saveEdits(detail.id, items, dt, dv)}
         />
       )}
     </div>
   )
 }
 
-function OrderDetail({ order, onClose, onReprint, printing }) {
+const DISCOUNTS = [0, 5, 10, 15]
+
+function OrderDetail({ order, isAdmin, onClose, onReprint, printing, onCancel, onSave }) {
+  const [edit, setEdit] = useState(false)
+  const [qty, setQty] = useState({})
+  const [disc, setDisc] = useState(null) // null = keep existing; number = percent
   const when = new Date(order.paid_at + 'Z').toLocaleString()
+
+  useEffect(() => {
+    setQty(Object.fromEntries(order.items.map((i) => [i.id, i.qty])))
+    setDisc(null)
+    setEdit(false)
+  }, [order])
+
+  const q = (it) => (edit ? qty[it.id] ?? it.qty : it.qty)
+  const subtotal = order.items.reduce((s, it) => s + it.unit_price * q(it), 0)
+  const discount = !edit
+    ? order.discount
+    : disc === null
+      ? Math.min(order.discount, subtotal)
+      : Math.round((subtotal * disc) / 100)
+  const total = subtotal - Math.min(discount, subtotal)
+
+  const setQ = (id, v) => setQty((m) => ({ ...m, [id]: Math.max(0, v) }))
+
+  const save = () => {
+    const items = order.items.map((it) => ({ id: it.id, qty: qty[it.id] ?? it.qty }))
+    onSave(items, disc === null ? undefined : 'percent', disc === null ? undefined : disc)
+  }
+
   return (
     <Modal
       title={`Order #${order.id}${order.table_label ? ` · Table ${order.table_label}` : ''}`}
       subtitle={when}
       onClose={onClose}
-      width={460}
+      width={480}
     >
-      <div className="max-h-[45vh] overflow-y-auto -mx-1 px-1 divide-y divide-line/60">
+      <div className="max-h-[42vh] overflow-y-auto -mx-1 px-1 divide-y divide-line/60">
         {order.items.map((it) => (
-          <div key={it.id} className="flex justify-between py-2.5">
-            <span>
-              <span className="text-muted tnum mr-2">{it.qty}×</span>
-              {it.name}
+          <div key={it.id} className="flex items-center justify-between py-2.5 gap-3">
+            <span className="flex-1 min-w-0">
+              {!edit && <span className="text-muted tnum mr-2">{it.qty}×</span>}
+              <span className={q(it) === 0 ? 'line-through text-muted' : ''}>{it.name}</span>
               <span className="text-muted text-sm tnum ml-2">@ {money(it.unit_price)}</span>
             </span>
-            <span className="font-semibold tnum">{money(it.unit_price * it.qty)}</span>
+            {edit ? (
+              <span className="flex items-center gap-1.5">
+                <button className="w-8 h-8 rounded-lg bg-surface2 border border-line text-xl leading-none active:scale-90" onClick={() => setQ(it.id, q(it) - 1)}>−</button>
+                <span className="w-6 text-center font-bold tnum">{q(it)}</span>
+                <button className="w-8 h-8 rounded-lg bg-surface2 border border-line text-xl leading-none active:scale-90" onClick={() => setQ(it.id, q(it) + 1)}>+</button>
+              </span>
+            ) : (
+              <span className="font-semibold tnum">{money(it.unit_price * it.qty)}</span>
+            )}
           </div>
         ))}
         {order.items.length === 0 && <p className="text-muted py-3">No items recorded.</p>}
       </div>
 
+      {edit && (
+        <div className="flex items-center gap-2 pt-1">
+          <span className="text-muted text-sm mr-1">Discount</span>
+          <button onClick={() => setDisc(null)} className={pill(disc === null)}>Keep</button>
+          {DISCOUNTS.map((d) => (
+            <button key={d} onClick={() => setDisc(d)} className={pill(disc === d)}>{d === 0 ? 'None' : `${d}%`}</button>
+          ))}
+        </div>
+      )}
+
       <div className="space-y-1.5 pt-1">
-        {order.discount > 0 && (
+        {discount > 0 && (
           <>
-            <Line label="Subtotal" value={money(order.subtotal)} muted />
-            <Line label="Discount" value={`- ${money(order.discount)}`} className="text-berry" />
+            <Line label="Subtotal" value={money(subtotal)} muted />
+            <Line label="Discount" value={`- ${money(discount)}`} className="text-berry" />
           </>
         )}
         <div className="flex justify-between items-baseline">
           <span className="text-lg">Total</span>
-          <span className="font-display text-2xl font-bold text-ember tnum">{money(order.total)}</span>
+          <span className="font-display text-2xl font-bold text-ember tnum">{money(total)}</span>
         </div>
-        {(order.payments || []).map((p) => (
-          <div key={p.id} className="flex justify-between items-center rounded-xl bg-surface2/70 border border-line px-4 py-2 mt-1">
-            <span className="chip bg-surface3 text-cream">{p.method === 'card' ? 'Card' : 'Cash'}</span>
-            <span className="font-display font-bold text-cream tnum">{money(p.amount)}</span>
-          </div>
-        ))}
-        {order.change_due > 0 && (
+        {!edit &&
+          (order.payments || []).map((p) => (
+            <div key={p.id} className="flex justify-between items-center rounded-xl bg-surface2/70 border border-line px-4 py-2 mt-1">
+              <span className="chip bg-surface3 text-cream">{p.method === 'card' ? 'Card' : 'Cash'}</span>
+              <span className="font-display font-bold text-cream tnum">{money(p.amount)}</span>
+            </div>
+          ))}
+        {!edit && order.change_due > 0 && (
           <div className="flex justify-between items-center rounded-2xl bg-mint/15 border border-mint/40 px-4 py-2.5 mt-2">
             <span className="text-mint font-semibold">Change given</span>
             <span className="font-display text-xl font-bold text-mint tnum">{money(order.change_due)}</span>
@@ -164,15 +237,37 @@ function OrderDetail({ order, onClose, onReprint, printing }) {
         )}
       </div>
 
-      <div className="flex gap-3 pt-2">
-        <button className="btn-ghost flex-1" disabled={printing} onClick={onReprint}>
-          <IconPrint width={20} height={20} /> {printing ? 'Printing…' : 'Re-print receipt'}
-        </button>
-        <button className="btn-accent flex-1" onClick={onClose}>Close</button>
-      </div>
+      {edit ? (
+        <div className="flex gap-3 pt-2">
+          <button className="btn-ghost flex-1" onClick={() => setEdit(false)}>Discard</button>
+          <button className="btn-accent flex-1" onClick={save}>Save changes</button>
+        </div>
+      ) : (
+        <div className="space-y-3 pt-2">
+          {isAdmin && (
+            <div className="flex gap-3">
+              <button className="btn-ghost flex-1" onClick={() => setEdit(true)}>
+                <IconEdit width={18} height={18} /> Edit
+              </button>
+              <button className="btn-danger flex-1" onClick={onCancel}>
+                <IconTrash width={18} height={18} /> Cancel order
+              </button>
+            </div>
+          )}
+          <div className="flex gap-3">
+            <button className="btn-ghost flex-1" disabled={printing} onClick={onReprint}>
+              <IconPrint width={20} height={20} /> {printing ? 'Printing…' : 'Re-print'}
+            </button>
+            <button className="btn-accent flex-1" onClick={onClose}>Close</button>
+          </div>
+        </div>
+      )}
     </Modal>
   )
 }
+
+const pill = (active) =>
+  `px-3.5 py-2 rounded-xl text-sm font-semibold border transition ${active ? 'bg-ember text-[#2a1c0c] border-ember' : 'bg-surface2 border-line text-muted hover:text-cream'}`
 
 function Line({ label, value, muted, className = '' }) {
   return (

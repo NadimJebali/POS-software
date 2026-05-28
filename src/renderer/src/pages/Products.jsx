@@ -1,13 +1,22 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
-import { money, unitsToMillis } from '../lib/settings'
+import { money, unitsToMillis, useSettings } from '../lib/settings'
 import PageHeader from '../components/PageHeader'
 import Modal from '../components/Modal'
 import { IconPlus, IconTrash } from '../components/icons'
 
+// Stock badge with low/out colouring.
+function StockBadge({ stock, threshold }) {
+  if (stock <= 0) return <span className="chip bg-berry/20 text-berry">Out of stock</span>
+  if (stock <= threshold) return <span className="chip bg-ember/15 text-ember tnum">{stock} left</span>
+  return <span className="chip bg-surface3 text-muted tnum">{stock} in stock</span>
+}
+
 const COLORS = ['#EC9A45', '#E26A52', '#54D6A0', '#6BA3F7', '#B583F7', '#F7B96B', '#9AA35A', '#9789A8']
 
 export default function Products() {
+  const { settings } = useSettings()
+  const threshold = parseInt(settings.low_stock_threshold || '5', 10)
   const [categories, setCategories] = useState([])
   const [products, setProducts] = useState([])
   const [selectedCat, setSelectedCat] = useState(null)
@@ -26,12 +35,19 @@ export default function Products() {
   const visible = selectedCat ? products.filter((p) => p.category_id === selectedCat) : products
 
   const saveProduct = async (form) => {
-    const payload = { ...form, price: unitsToMillis(form.priceStr), category_id: Number(form.category_id) }
+    const payload = {
+      ...form,
+      price: unitsToMillis(form.priceStr),
+      category_id: Number(form.category_id),
+      stock: Number(form.stock) || 0
+    }
     if (form.id) await api.products.update(payload)
     else await api.products.create(payload)
     setEditing(null)
     loadAll()
   }
+
+  const lowItems = products.filter((p) => p.stock <= threshold)
   const deleteProduct = async (p) => {
     if (confirm(`Delete "${p.name}"?`)) {
       await api.products.remove(p.id)
@@ -87,10 +103,20 @@ export default function Products() {
       {/* product list */}
       <div className="flex-1 flex flex-col p-7 overflow-hidden">
         <PageHeader title="Menu" subtitle={`${visible.length} product${visible.length === 1 ? '' : 's'}`}>
-          <button className="btn-accent" disabled={categories.length === 0} onClick={() => setEditing({ name: '', priceStr: '', category_id: selectedCat || categories[0]?.id, active: 1 })}>
+          <button className="btn-accent" disabled={categories.length === 0} onClick={() => setEditing({ name: '', priceStr: '', category_id: selectedCat || categories[0]?.id, active: 1, stock: 0 })}>
             <IconPlus width={20} height={20} /> Add product
           </button>
         </PageHeader>
+
+        {lowItems.length > 0 && (
+          <div className="mb-4 rounded-2xl bg-ember/10 border border-ember/40 px-5 py-3 flex items-center gap-3 animate-rise">
+            <span className="text-2xl">⚠️</span>
+            <span className="text-cream">
+              <span className="font-semibold text-ember">{lowItems.length}</span> product{lowItems.length === 1 ? ' is' : 's are'} low or out of stock
+              <span className="text-muted"> (threshold {threshold})</span>: {lowItems.slice(0, 4).map((p) => p.name).join(', ')}{lowItems.length > 4 ? '…' : ''}
+            </span>
+          </div>
+        )}
 
         <div className="card flex-1 overflow-y-auto">
           <table className="w-full text-left">
@@ -99,6 +125,7 @@ export default function Products() {
                 <th className="px-5 py-4 font-medium">Name</th>
                 <th className="px-5 py-4 font-medium">Category</th>
                 <th className="px-5 py-4 font-medium text-right">Price</th>
+                <th className="px-5 py-4 font-medium text-center">Stock</th>
                 <th className="px-5 py-4 font-medium text-center">Status</th>
                 <th className="px-5 py-4"></th>
               </tr>
@@ -114,6 +141,7 @@ export default function Products() {
                     </span>
                   </td>
                   <td className="px-5 py-3.5 text-right font-display font-bold text-ember tnum">{money(p.price)}</td>
+                  <td className="px-5 py-3.5 text-center"><StockBadge stock={p.stock} threshold={threshold} /></td>
                   <td className="px-5 py-3.5 text-center">
                     {p.active ? <span className="chip bg-mint/15 text-mint">Active</span> : <span className="chip bg-surface3 text-muted">Hidden</span>}
                   </td>
@@ -124,7 +152,7 @@ export default function Products() {
                 </tr>
               ))}
               {visible.length === 0 && (
-                <tr><td colSpan={5} className="px-5 py-12 text-center text-muted">No products yet.</td></tr>
+                <tr><td colSpan={6} className="px-5 py-12 text-center text-muted">No products yet.</td></tr>
               )}
             </tbody>
           </table>
@@ -146,10 +174,16 @@ function ProductModal({ product, categories, onClose, onSave }) {
         <span className="text-muted text-sm">Name</span>
         <input className="input mt-1.5" value={form.name} autoFocus onChange={(e) => set('name', e.target.value)} />
       </label>
-      <label className="block">
-        <span className="text-muted text-sm">Price</span>
-        <input className="input mt-1.5 tnum" inputMode="decimal" placeholder="e.g. 2.500" value={form.priceStr} onChange={(e) => set('priceStr', e.target.value)} />
-      </label>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="block">
+          <span className="text-muted text-sm">Price</span>
+          <input className="input mt-1.5 tnum" inputMode="decimal" placeholder="e.g. 2.500" value={form.priceStr} onChange={(e) => set('priceStr', e.target.value)} />
+        </label>
+        <label className="block">
+          <span className="text-muted text-sm">Stock on hand</span>
+          <input className="input mt-1.5 tnum" type="number" inputMode="numeric" value={form.stock ?? 0} onChange={(e) => set('stock', e.target.value)} />
+        </label>
+      </div>
       <label className="block">
         <span className="text-muted text-sm">Category</span>
         <select className="input mt-1.5" value={form.category_id} onChange={(e) => set('category_id', e.target.value)}>

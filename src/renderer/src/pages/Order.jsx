@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../lib/api'
-import { money } from '../lib/settings'
+import { money, useSettings } from '../lib/settings'
 import { IconBack, IconTrash } from '../components/icons'
 
 export default function Order() {
   const { tableId } = useParams()
   const navigate = useNavigate()
+  const { settings } = useSettings()
+  const threshold = parseInt(settings.low_stock_threshold || '5', 10)
 
   const [order, setOrder] = useState(null)
   const [categories, setCategories] = useState([])
@@ -75,7 +77,16 @@ export default function Order() {
               className="animate-rise card p-4 h-28 flex flex-col justify-between text-left hover:border-ember/40 hover:bg-surface2 active:scale-[0.97] transition-all"
             >
               <span className="text-lg font-semibold leading-tight">{p.name}</span>
-              <span className="text-ember font-display font-bold text-lg tnum">{money(p.price)}</span>
+              <span className="flex items-center justify-between gap-2">
+                <span className="text-ember font-display font-bold text-lg tnum">{money(p.price)}</span>
+                {p.stock <= 0 ? (
+                  <span className="text-[11px] font-semibold text-berry">Out</span>
+                ) : p.stock <= threshold ? (
+                  <span className="text-[11px] font-semibold text-ember tnum">{p.stock} left</span>
+                ) : (
+                  <span className="text-[11px] text-muted tnum">{p.stock}</span>
+                )}
+              </span>
             </button>
           ))}
           {products.length === 0 && <p className="text-muted col-span-full mt-4">No products in this category.</p>}

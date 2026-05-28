@@ -1,0 +1,27 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F8BE72"/>
+      <stop offset="1" stop-color="#E5882F"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.28"/>
+      <stop offset="0.55" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- squircle background -->
+  <rect x="0" y="0" width="1024" height="1024" rx="232" fill="#15100D"/>
+  <rect x="36" y="36" width="952" height="952" rx="208" fill="url(#bg)"/>
+  <rect x="36" y="36" width="952" height="952" rx="208" fill="url(#sheen)"/>
+
+  <!-- receipt -->
+  <path d="M330 256 H694 V744 l-40.5 30 -40.5 -30 -40.5 30 -40.5 -30 -40.5 30 -40.5 -30 -40.5 30 -40.5 -30 -40.5 30 V256 Z"
+        fill="#FBF4E9"/>
+  <!-- text lines -->
+  <rect x="386" y="344" width="252" height="34" rx="17" fill="#E5882F"/>
+  <rect x="386" y="418" width="252" height="34" rx="17" fill="#E5882F"/>
+  <rect x="386" y="492" width="150" height="34" rx="17" fill="#E5882F"/>
+  <!-- total bar -->
+  <rect x="386" y="586" width="252" height="56" rx="20" fill="#15100D"/>
+</svg>

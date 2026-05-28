@@ -1,0 +1,44 @@
+
+> pos-software@0.1.0 dev
+> electron-vite dev
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+[36mvite v5.4.21 [32mbuilding SSR bundle for development...[36m[39m
+(node:22236) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Vinny/Desktop/Pos%20software/postcss.config.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\Vinny\Desktop\Pos software\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+transforming...
+[32m✓[39m 5 modules transformed.
+rendering chunks...
+[2mout/main/[22m[36mindex.js  [39m[1m[2m37.14 kB[22m[1m[22m
+[32m✓ built in 337ms[39m
+[32m
+build the electron main process successfully[39m
+[90m
+-----
+[39m
+[36mvite v5.4.21 [32mbuilding SSR bundle for development...[36m[39m
+transforming...
+[32m✓[39m 1 modules transformed.
+rendering chunks...
+[2mout/preload/[22m[36mindex.js  [39m[1m[2m1.12 kB[22m[1m[22m
+[32m✓ built in 7ms[39m
+[32m
+build the electron preload files successfully[39m
+[90m
+-----
+[39m
+[32mdev server running for the electron renderer process at:
+[39m
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
+[2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
+[32m
+start electron app...
+[39m
+
+Error occurred in handler for 'auth:login': Error: Invalid username or PIN
+    at auth:login (C:\Users\Vinny\Desktop\Pos software\out\main\index.js:409:58)
+    at C:\Users\Vinny\Desktop\Pos software\out\main\index.js:717:14
+    at WebContents.<anonymous> (node:electron/js2c/browser_init:2:87039)
+    at WebContents.emit (node:events:518:28)

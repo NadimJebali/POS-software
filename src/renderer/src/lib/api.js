@@ -2,6 +2,18 @@
 const call = (channel, payload) => window.pos[channel](payload)
 
 export const api = {
+  auth: {
+    login: (username, pin) => call('auth:login', { username, pin }),
+    logout: () => call('auth:logout'),
+    current: () => call('auth:current'),
+    users: () => call('auth:users')
+  },
+  users: {
+    list: () => call('users:list'),
+    create: (data) => call('users:create', data),
+    update: (data) => call('users:update', data),
+    remove: (id) => call('users:remove', { id })
+  },
   settings: {
     get: () => call('settings:get'),
     set: (patch) => call('settings:set', { patch })
@@ -39,7 +51,10 @@ export const api = {
     addPayment: (orderId, method, amount) => call('orders:addPayment', { orderId, method, amount }),
     removePayment: (paymentId) => call('orders:removePayment', { paymentId }),
     complete: (orderId) => call('orders:complete', { orderId }),
-    history: (date) => call('orders:history', { date })
+    history: (date) => call('orders:history', { date }),
+    cancelPaid: (orderId) => call('orders:cancelPaid', { orderId }),
+    updatePaid: (orderId, items, discountType, discountValue) =>
+      call('orders:updatePaid', { orderId, items, discountType, discountValue })
   },
   receipt: {
     print: (orderId) => call('receipt:print', { orderId })

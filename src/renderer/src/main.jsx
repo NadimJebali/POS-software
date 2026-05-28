@@ -5,14 +5,17 @@ import '@fontsource-variable/bricolage-grotesque'
 import '@fontsource-variable/hanken-grotesk'
 import App from './App'
 import { SettingsProvider } from './lib/settings'
+import { AuthProvider } from './lib/auth'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <SettingsProvider>
-      <HashRouter>
-        <App />
-      </HashRouter>
+      <AuthProvider>
+        <HashRouter>
+          <App />
+        </HashRouter>
+      </AuthProvider>
     </SettingsProvider>
   </React.StrictMode>
 )
