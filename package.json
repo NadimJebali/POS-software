@@ -10,6 +10,7 @@
     "build": "electron-vite build",
     "start": "electron-vite preview",
     "icon": "node scripts/make-icon.mjs",
+    "license:exe": "node tools/build-license-exe.mjs",
     "dist": "electron-vite build && electron-builder"
   },
   "dependencies": {

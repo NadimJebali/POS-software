@@ -1,0 +1,5 @@
+{
+  "main": "tools/license-tool.cjs",
+  "output": "tools/sea-prep.blob",
+  "disableExperimentalSEAWarning": true
+}

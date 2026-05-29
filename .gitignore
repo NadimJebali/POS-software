@@ -8,3 +8,10 @@ dist/
 *.db
 *.db-wal
 *.db-shm
+# Licensing — keep the signing key OUT of the repo (public key is embedded in source)
+license-private.pem
+license-public.pem
+*.license
+# License generator build artifacts (rebuild with: npm run license:exe)
+LicenseGenerator.exe
+tools/sea-prep.blob

@@ -1,8 +1,10 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './lib/auth'
+import { useLicense } from './lib/license'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Setup from './pages/Setup'
+import Activate from './pages/Activate'
 import Floor from './pages/Floor'
 import Order from './pages/Order'
 import Checkout from './pages/Checkout'
@@ -15,6 +17,11 @@ import Users from './pages/Users'
 
 export default function App() {
   const { user, isAdmin, needsSetup } = useAuth()
+  const { status: license } = useLicense()
+
+  if (!license) return null // license check still loading
+  // Locked until a valid license is entered (trial still counts as usable).
+  if (license.state === 'unlicensed' || license.state === 'expired') return <Activate />
 
   if (needsSetup === null) return null // still checking — avoid a flash of the login screen
   if (needsSetup) return <Setup /> // first run: create the admin account

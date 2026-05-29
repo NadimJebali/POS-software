@@ -1,6 +1,7 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { printReceipt } from './receipt'
 import { hashPin, verifyPin } from './auth-util'
+import { getStatus as licenseStatus, activate as licenseActivate } from './license'
 
 // Channels only an authenticated admin may call (enforced in the dispatcher below).
 const ADMIN_CHANNELS = new Set([
@@ -54,6 +55,10 @@ export function registerIpc(db) {
   }
 
   const handlers = {
+    // ---------------- Licensing ----------------
+    'license:status': () => licenseStatus(),
+    'license:activate': ({ license }) => licenseActivate(license),
+
     // ---------------- First-run setup ----------------
     // The app needs setup until at least one admin exists.
     'auth:needsSetup': () => db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'admin'").get().n === 0,

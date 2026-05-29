@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useSettings } from '../lib/settings'
 import { useAuth } from '../lib/auth'
+import { useLicense } from '../lib/license'
 import { api } from '../lib/api'
 import { IconFloor, IconProducts, IconTables, IconHistory, IconChart, IconSettings, IconUsers, IconLogout } from './icons'
 
@@ -36,6 +37,7 @@ function Clock() {
 export default function Layout() {
   const { settings } = useSettings()
   const { user, isAdmin, logout } = useAuth()
+  const { status: license } = useLicense()
   const [lowCount, setLowCount] = useState(0)
 
   // Low-stock indicator for the Menu nav item (admins only).
@@ -108,8 +110,15 @@ export default function Layout() {
         </div>
       </nav>
 
-      <main className="flex-1 overflow-hidden">
-        <Outlet />
+      <main className="flex-1 overflow-hidden flex flex-col">
+        {license?.state === 'trial' && (
+          <div className="shrink-0 bg-ember/15 border-b border-ember/30 text-ember text-sm font-semibold px-5 py-2 text-center">
+            Trial — {license.daysLeft} day{license.daysLeft === 1 ? '' : 's'} left{isAdmin ? ' · activate in Setup → License' : ''}
+          </div>
+        )}
+        <div className="flex-1 overflow-hidden">
+          <Outlet />
+        </div>
       </main>
     </div>
   )

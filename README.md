@@ -56,6 +56,30 @@ npm install
 npm run dev
 ```
 
+## Licensing (selling the app)
+
+The app is protected with **offline, node-locked, signed licenses** — no server required.
+
+- Each install shows a **Machine ID** (derived from the hardware GUID) on the activation screen and in **Setup → License**.
+- The app runs as a **14-day trial**, then requires a license.
+- A license is an Ed25519-**signed token bound to one Machine ID** — it can't be forged (no private key) and won't work if the app/folder is copied to another PC (different Machine ID).
+
+### The license generator (vendor tool)
+Issue licenses with the friendly generator — no commands to type:
+- **`Generate License.bat`** — double-click (uses your installed Node), or
+- **`LicenseGenerator.exe`** — standalone, no Node needed. Rebuild it any time with `npm run license:exe`.
+
+It opens a small console: choose **[1] Generate a license**, paste the customer's **Machine ID**, enter a name and validity (days), and it prints the license — with options to **copy to clipboard** or save to a file. (Scriptable too: `LicenseGenerator.exe --machine <ID> --name "X" --days 365`.)
+
+Keep the tool **next to `license-private.pem`** (your SECRET signing key — gitignored, never commit it). The public key is embedded in `src/main/license.js`. To create a fresh key pair, run the tool and choose **[2] Create new signing keys** (this invalidates all previously issued licenses).
+
+### Issuing a license to a customer
+1. The customer installs the app and reads their **Machine ID** from the activation screen (or Setup → License).
+2. You run the generator, paste their Machine ID, set a name/duration → get the license string.
+3. Send it to them; they paste it into **Activate** (or Setup → License). Done.
+
+> Note: this deters casual copying/sharing (the realistic goal for a JS app). To raise the bar further, **code-sign** the build and consider compiling the license check with `bytenode`.
+
 ## Build a Windows installer
 
 ```bash

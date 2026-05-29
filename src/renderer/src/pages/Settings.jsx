@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../lib/api'
 import { useSettings } from '../lib/settings'
+import { useLicense } from '../lib/license'
 import PageHeader from '../components/PageHeader'
 
 // Local preview formatter (mirrors lib/settings money()).
@@ -45,6 +46,8 @@ export default function Settings() {
       </PageHeader>
 
       <div className="grid grid-cols-2 gap-6 overflow-y-auto pr-1 pb-4">
+        <LicenseSection />
+
         {/* Shop info */}
         <Section title="Shop information">
           <Field label="Shop name">
@@ -183,5 +186,60 @@ function Field({ label, children }) {
       <span className="text-muted text-sm">{label}</span>
       <div className="mt-1.5">{children}</div>
     </label>
+  )
+}
+
+function LicenseSection() {
+  const { status, activate } = useLicense()
+  const [license, setLicense] = useState('')
+  const [msg, setMsg] = useState(null)
+  const [busy, setBusy] = useState(false)
+
+  const apply = async () => {
+    if (!license.trim()) return
+    setBusy(true)
+    setMsg(null)
+    try {
+      await activate(license.trim())
+      setLicense('')
+      setMsg({ ok: true, text: 'License activated' })
+    } catch (e) {
+      setMsg({ ok: false, text: e.message })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const labels = { licensed: 'Licensed', trial: 'Trial', unlicensed: 'Not licensed', expired: 'Expired' }
+  const chip =
+    status?.state === 'licensed' ? 'bg-mint/15 text-mint' : status?.state === 'trial' ? 'bg-ember/15 text-ember' : 'bg-berry/20 text-berry'
+
+  return (
+    <Section title="License">
+      <div className="flex items-center flex-wrap gap-2 text-sm">
+        <span className={`chip ${chip}`}>{labels[status?.state] || '—'}</span>
+        {status?.state === 'trial' && <span className="text-muted">{status.daysLeft} days left</span>}
+        {status?.name && <span className="text-muted">· {status.name}</span>}
+        {status?.exp && <span className="text-muted">· expires {new Date(status.exp).toLocaleDateString()}</span>}
+      </div>
+      <Field label="Machine ID (send to vendor for a license)">
+        <div className="flex items-center gap-2">
+          <code className="font-display tnum flex-1 break-all">{status?.machineId || '…'}</code>
+          <button className="btn-ghost py-2 px-3" onClick={() => navigator.clipboard?.writeText(status?.machineId || '')}>Copy</button>
+        </div>
+      </Field>
+      <Field label="Enter / renew license">
+        <textarea
+          className="input font-mono text-sm h-24 resize-none"
+          value={license}
+          placeholder="paste license here"
+          onChange={(e) => setLicense(e.target.value)}
+        />
+      </Field>
+      {msg && <p className={`text-sm ${msg.ok ? 'text-mint' : 'text-berry'}`}>{msg.text}</p>}
+      <button className="btn-accent" disabled={!license.trim() || busy} onClick={apply}>
+        {busy ? 'Activating…' : 'Activate license'}
+      </button>
+    </Section>
   )
 }
