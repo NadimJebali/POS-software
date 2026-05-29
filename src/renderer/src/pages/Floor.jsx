@@ -2,14 +2,18 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import { money } from '../lib/settings'
+import { useAuth } from '../lib/auth'
 import PageHeader from '../components/PageHeader'
 import Modal from '../components/Modal'
+import { useDialog } from '../components/Dialog'
 import { IconPlus } from '../components/icons'
 
 export default function Floor() {
   const [tables, setTables] = useState([])
   const [adding, setAdding] = useState(null)
   const navigate = useNavigate()
+  const { isAdmin } = useAuth()
+  const { alert } = useDialog()
 
   const load = () => api.tables.list().then(setTables)
   useEffect(() => {
@@ -20,7 +24,12 @@ export default function Floor() {
   const openSales = tables.reduce((s, t) => s + (t.order ? t.order.total : 0), 0)
 
   const saveTable = async (form) => {
-    await api.tables.create(form)
+    try {
+      await api.tables.create(form)
+    } catch (e) {
+      alert({ title: 'Could not add table', message: e.message })
+      return
+    }
     setAdding(null)
     load()
   }
@@ -28,17 +37,23 @@ export default function Floor() {
   return (
     <div className="h-full flex flex-col p-7">
       <PageHeader title="Floor" subtitle={`${occupied} occupied · ${tables.length} tables · ${money(openSales)} open`}>
-        <button className="btn-accent" onClick={() => setAdding({ label: '', seats: 4 })}>
-          <IconPlus width={20} height={20} /> Add table
-        </button>
+        {isAdmin && (
+          <button className="btn-accent" onClick={() => setAdding({ label: '', seats: 4 })}>
+            <IconPlus width={20} height={20} /> Add table
+          </button>
+        )}
       </PageHeader>
 
       {tables.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-muted gap-4">
           <p className="text-xl">No tables yet.</p>
-          <button className="btn-accent" onClick={() => setAdding({ label: '', seats: 4 })}>
-            Add your first table
-          </button>
+          {isAdmin ? (
+            <button className="btn-accent" onClick={() => setAdding({ label: '', seats: 4 })}>
+              Add your first table
+            </button>
+          ) : (
+            <p className="text-sm">Ask an administrator to set up the tables.</p>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-4 xl:grid-cols-6 gap-4 overflow-y-auto pr-1 content-start">

@@ -19,8 +19,13 @@ export default function TablesManage() {
   }, [])
 
   const save = async (form) => {
-    if (form.id) await api.tables.update(form)
-    else await api.tables.create(form)
+    try {
+      if (form.id) await api.tables.update(form)
+      else await api.tables.create(form)
+    } catch (e) {
+      alert({ title: 'Could not save table', message: e.message })
+      return
+    }
     setEditing(null)
     load()
   }

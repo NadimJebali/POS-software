@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
 import { money } from '../lib/settings'
+import { useAuth } from '../lib/auth'
 import PageHeader from '../components/PageHeader'
 
 const PERIODS = [
@@ -11,6 +12,7 @@ const PERIODS = [
 ]
 
 export default function Analytics() {
+  const { isAdmin } = useAuth()
   const [overview, setOverview] = useState(null)
   const [period, setPeriod] = useState('daily')
   const [series, setSeries] = useState([])
@@ -25,8 +27,8 @@ export default function Analytics() {
     const p = PERIODS.find((x) => x.key === period)
     api.analytics.series(period).then(setSeries)
     api.analytics.topProducts(p.metric).then(setTop)
-    api.analytics.byServer(p.metric).then(setServers)
-  }, [period])
+    if (isAdmin) api.analytics.byServer(p.metric).then(setServers)
+  }, [period, isAdmin])
 
   const serverMax = Math.max(1, ...servers.map((s) => s.revenue))
 
@@ -35,7 +37,7 @@ export default function Analytics() {
 
   return (
     <div className="h-full flex flex-col p-7 overflow-y-auto">
-      <PageHeader title="Analytics" subtitle="Earnings overview" />
+      <PageHeader title="Analytics" subtitle={isAdmin ? 'Earnings overview' : 'Your earnings overview'} />
 
       <div className="grid grid-cols-4 gap-4 mb-6">
         {overview &&
@@ -97,7 +99,8 @@ export default function Analytics() {
         </div>
       </div>
 
-      {/* sales by server */}
+      {/* sales by server — admins only */}
+      {isAdmin && (
       <div className="card p-6 mt-6">
         <h2 className="font-display text-xl font-bold mb-5">Sales by server · {periodObj.metricLabel}</h2>
         {servers.length === 0 ? (
@@ -124,6 +127,7 @@ export default function Analytics() {
           </div>
         )}
       </div>
+      )}
     </div>
   )
 }

@@ -22,14 +22,22 @@ export default function Order() {
   const [picker, setPicker] = useState(null) // { product, groups } when choosing modifiers
   const scan = useRef({ buf: '', last: 0 })
 
+  // Live stock per product. Stock is reserved as items are added to the order, so
+  // these counts reflect what's still available and must be refreshed after changes.
+  const refreshStock = async () => {
+    const ps = await api.products.list()
+    const map = Object.fromEntries(ps.map((p) => [p.id, p.stock]))
+    setStockMap(map)
+    return map
+  }
+
   useEffect(() => {
     api.orders.openForTable(Number(tableId)).then(setOrder)
     api.categories.list().then((cats) => {
       setCategories(cats)
       if (cats.length) setActiveCat(cats[0].id)
     })
-    // stock for every product, for warnings as items are added
-    api.products.list().then((ps) => setStockMap(Object.fromEntries(ps.map((p) => [p.id, p.stock]))))
+    refreshStock()
   }, [tableId])
 
   useEffect(() => {
@@ -38,9 +46,10 @@ export default function Order() {
 
   const warn = (level, text) => setToast({ level, text, at: Date.now() })
 
-  const warnStock = (p) => {
-    if (p.stock <= 0) warn('out', `${p.name} is out of stock`)
-    else if (p.stock <= threshold) warn('low', `${p.name} is running low — ${p.stock} left`)
+  // Warn once the reserved unit leaves stock running low / empty (uses live remaining).
+  const warnStock = (name, left) => {
+    if (left <= 0) warn('out', `${name} — that was the last one in stock`)
+    else if (left <= threshold) warn('low', `${name} running low — ${left} left`)
   }
 
   // Tap a product: if it has size/extra options, open the picker; otherwise add directly.
@@ -50,15 +59,27 @@ export default function Order() {
       setPicker({ product: p, groups })
       return
     }
-    setOrder(await api.orders.addItem(order.id, p.id))
-    warnStock(p)
+    try {
+      setOrder(await api.orders.addItem(order.id, p.id))
+    } catch (e) {
+      warn('out', e.message)
+      return
+    }
+    const map = await refreshStock()
+    warnStock(p.name, map[p.id] ?? 0)
   }
 
   const confirmPicker = async (optionIds) => {
     const p = picker.product
-    setOrder(await api.orders.addItemWithMods(order.id, p.id, optionIds))
+    try {
+      setOrder(await api.orders.addItemWithMods(order.id, p.id, optionIds))
+    } catch (e) {
+      warn('out', e.message)
+      return
+    }
     setPicker(null)
-    warnStock(p)
+    const map = await refreshStock()
+    warnStock(p.name, map[p.id] ?? 0)
   }
 
   // auto-dismiss the toast
@@ -95,7 +116,15 @@ export default function Order() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [order, picker])
-  const changeQty = (item, delta) => api.orders.setItemQty(item.id, item.qty + delta).then(setOrder)
+  const changeQty = async (item, delta) => {
+    try {
+      setOrder(await api.orders.setItemQty(item.id, item.qty + delta))
+    } catch (e) {
+      warn('out', e.message)
+      return
+    }
+    refreshStock() // adding reserves stock, removing returns it
+  }
 
   const cancelOrder = async () => {
     if (
@@ -115,10 +144,10 @@ export default function Order() {
 
   if (!order) return <div className="p-8 text-muted">Loading…</div>
   const itemCount = order.items.reduce((s, i) => s + i.qty, 0)
-  // Items on the ticket that exceed available stock (incl. out-of-stock).
-  const oversold = order.items.filter(
-    (i) => i.product_id && stockMap[i.product_id] != null && i.qty > Math.max(0, stockMap[i.product_id])
-  )
+  // Units of a product still addable: stock is already reduced as items are reserved,
+  // so the live count is exactly what remains.
+  const remainingFor = (productId) =>
+    stockMap[productId] == null ? Infinity : Math.max(0, stockMap[productId])
 
   return (
     <div className="h-screen flex">
@@ -151,16 +180,18 @@ export default function Order() {
 
         <div className="grid grid-cols-3 xl:grid-cols-4 gap-3 overflow-y-auto pr-1 content-start">
           {products.map((p, i) => {
-            const out = p.stock <= 0
-            const low = !out && p.stock <= threshold
+            const remaining = remainingFor(p.id)
+            const out = remaining <= 0
+            const low = !out && remaining <= threshold
             return (
               <button
                 key={p.id}
                 onClick={() => addProduct(p)}
+                disabled={out}
                 style={{ animationDelay: `${Math.min(i * 20, 300)}ms` }}
                 className={`animate-rise relative card p-4 h-28 flex flex-col justify-between text-left active:scale-[0.97] transition-all overflow-hidden ${
                   out
-                    ? 'border-berry/60 ring-1 ring-berry/40 hover:bg-surface2'
+                    ? 'border-berry/60 ring-1 ring-berry/40 opacity-50 cursor-not-allowed'
                     : low
                       ? 'border-ember/60 ring-1 ring-ember/30 hover:bg-surface2'
                       : 'hover:border-ember/40 hover:bg-surface2'
@@ -182,7 +213,7 @@ export default function Order() {
                 <span className="flex items-center justify-between gap-2">
                   <span className="text-ember font-display font-bold text-lg tnum">{money(p.price)}</span>
                   <span className={`text-[11px] font-semibold tnum ${out ? 'text-berry' : low ? 'text-ember' : 'text-muted'}`}>
-                    {out ? 'out of stock' : `${p.stock} left`}
+                    {out ? 'out of stock' : `${remaining} left`}
                   </span>
                 </span>
               </button>
@@ -213,17 +244,6 @@ export default function Order() {
           <p className="text-muted">{itemCount} item{itemCount === 1 ? '' : 's'}</p>
         </div>
 
-        {oversold.length > 0 && (
-          <div className="mx-4 mt-3 rounded-xl bg-berry/15 border border-berry/40 px-4 py-2.5 text-sm">
-            <div className="font-semibold text-berry mb-0.5">⚠️ Not enough stock</div>
-            {oversold.map((i) => (
-              <div key={i.id} className="text-cream tnum">
-                {i.name}: ordering {i.qty}, only {Math.max(0, stockMap[i.product_id])} left
-              </div>
-            ))}
-          </div>
-        )}
-
         <div className="flex-1 overflow-y-auto px-4 py-2">
           {order.items.length === 0 && <p className="text-muted text-center mt-12">Ticket is empty.</p>}
           {order.items.map((item) => (
@@ -236,7 +256,13 @@ export default function Order() {
               <div className="flex items-center gap-1.5">
                 <button className="w-9 h-9 rounded-xl bg-surface2 border border-line text-2xl leading-none active:scale-90" onClick={() => changeQty(item, -1)}>−</button>
                 <span className="w-7 text-center text-lg font-bold tnum">{item.qty}</span>
-                <button className="w-9 h-9 rounded-xl bg-surface2 border border-line text-2xl leading-none active:scale-90" onClick={() => changeQty(item, +1)}>+</button>
+                <button
+                  className="w-9 h-9 rounded-xl bg-surface2 border border-line text-2xl leading-none active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
+                  disabled={item.product_id != null && remainingFor(item.product_id) <= 0}
+                  onClick={() => changeQty(item, +1)}
+                >
+                  +
+                </button>
               </div>
               <div className="w-[88px] text-right font-display font-bold tnum">{money(item.unit_price * item.qty)}</div>
             </div>

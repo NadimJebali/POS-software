@@ -2,6 +2,7 @@ import { ipcMain, BrowserWindow } from 'electron'
 import { printReceipt } from './receipt'
 import { hashPin, verifyPin } from './auth-util'
 import { getStatus as licenseStatus, activate as licenseActivate } from './license'
+import { exportDatabase, importDatabase } from './backup'
 
 // Channels only an authenticated admin may call (enforced in the dispatcher below).
 const ADMIN_CHANNELS = new Set([
@@ -11,7 +12,10 @@ const ADMIN_CHANNELS = new Set([
   'products:create', 'products:update', 'products:remove',
   'modgroups:create', 'modgroups:remove', 'modoptions:create', 'modoptions:remove',
   'tables:create', 'tables:update', 'tables:remove',
-  'orders:cancelPaid', 'orders:updatePaid'
+  // Note: orders:cancelPaid is intentionally NOT admin-only — staff may delete
+  // their own orders; the handler enforces the per-user restriction itself.
+  'orders:updatePaid',
+  'db:export', 'db:import'
 ])
 
 /**
@@ -22,6 +26,19 @@ export function registerIpc(db) {
   // In-memory session for this terminal (cleared on logout / app restart).
   let currentUser = null
   const publicUser = (u) => (u ? { id: u.id, username: u.username, name: u.name, role: u.role } : null)
+  const isAdmin = () => currentUser && currentUser.role === 'admin'
+
+  // Backup/restore is a licensed-only feature — a trial or unlicensed copy can't use it.
+  const requireLicensed = () => {
+    if (licenseStatus().state !== 'licensed') {
+      throw new Error('An active license is required to back up or restore the database')
+    }
+  }
+
+  // SQL fragment limiting rows to the signed-in user's own orders (everything for
+  // admins). `alias` is the orders-table alias used in the surrounding query.
+  // Safe to inline: the id is a number from our own in-memory session.
+  const ownOrders = (alias) => (isAdmin() ? '1=1' : `${alias}.user_id = ${Number(currentUser?.id) || 0}`)
 
   // ---- settings (key/value store) ----
   const getSettings = () => {
@@ -44,6 +61,15 @@ export function registerIpc(db) {
     return total
   }
 
+  // Stock is reserved the moment an item is added to an open order, so products.stock
+  // always reflects what's physically left. Returning an order's items puts their
+  // reserved stock back (used when voiding an open order or deleting its table).
+  const restoreOrderStock = (orderId) => {
+    const inc = db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?')
+    const items = db.prepare('SELECT product_id, qty FROM order_items WHERE order_id = ?').all(orderId)
+    for (const it of items) if (it.product_id) inc.run(it.qty, it.product_id)
+  }
+
   const getOrderWithItems = (orderId) => {
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId)
     if (!order) return null
@@ -58,6 +84,16 @@ export function registerIpc(db) {
     // ---------------- Licensing ----------------
     'license:status': () => licenseStatus(),
     'license:activate': ({ license }) => licenseActivate(license),
+
+    // ---------------- Backup / restore (activated license only) ----------------
+    'db:export': () => {
+      requireLicensed()
+      return exportDatabase()
+    },
+    'db:import': () => {
+      requireLicensed()
+      return importDatabase(db)
+    },
 
     // ---------------- First-run setup ----------------
     // The app needs setup until at least one admin exists.
@@ -268,18 +304,28 @@ export function registerIpc(db) {
     },
 
     'tables:create': ({ label, seats }) => {
-      const info = db.prepare('INSERT INTO tables (label, seats) VALUES (?, ?)').run(label, seats || 4)
+      const name = String(label || '').trim()
+      if (!name) throw new Error('Table number is required')
+      const clash = db.prepare('SELECT id FROM tables WHERE label = ? COLLATE NOCASE').get(name)
+      if (clash) throw new Error(`Table "${name}" already exists`)
+      const info = db.prepare('INSERT INTO tables (label, seats) VALUES (?, ?)').run(name, seats || 4)
       return db.prepare('SELECT * FROM tables WHERE id = ?').get(info.lastInsertRowid)
     },
 
     'tables:update': ({ id, label, seats }) => {
-      db.prepare('UPDATE tables SET label = ?, seats = ? WHERE id = ?').run(label, seats || 4, id)
+      const name = String(label || '').trim()
+      if (!name) throw new Error('Table number is required')
+      const clash = db.prepare('SELECT id FROM tables WHERE label = ? COLLATE NOCASE AND id != ?').get(name, id)
+      if (clash) throw new Error(`Table "${name}" already exists`)
+      db.prepare('UPDATE tables SET label = ?, seats = ? WHERE id = ?').run(name, seats || 4, id)
       return db.prepare('SELECT * FROM tables WHERE id = ?').get(id)
     },
 
     'tables:remove': ({ id }) => {
       // Discard any unpaid order on this table so it can always be removed.
       // (Paid orders keep their table_label for history via ON DELETE SET NULL.)
+      const openOrders = db.prepare("SELECT id FROM orders WHERE table_id = ? AND status = 'open'").all(id)
+      for (const o of openOrders) restoreOrderStock(o.id) // return their reserved stock
       db.prepare("DELETE FROM orders WHERE table_id = ? AND status = 'open'").run(id)
       db.prepare('DELETE FROM tables WHERE id = ?').run(id)
       return { ok: true }
@@ -312,6 +358,7 @@ export function registerIpc(db) {
     'orders:addItem': ({ orderId, productId }) => {
       const product = db.prepare('SELECT * FROM products WHERE id = ?').get(productId)
       if (!product) throw new Error('Product not found')
+      if (product.stock < 1) throw new Error(`Not enough stock for ${product.name}`)
       const existing = db.prepare('SELECT * FROM order_items WHERE order_id = ? AND product_id = ?').get(orderId, productId)
       if (existing) {
         db.prepare('UPDATE order_items SET qty = qty + 1 WHERE id = ?').run(existing.id)
@@ -323,6 +370,7 @@ export function registerIpc(db) {
           product.price
         )
       }
+      db.prepare('UPDATE products SET stock = stock - 1 WHERE id = ?').run(productId) // reserve the unit
       recalcOrder(orderId)
       return getOrderWithItems(orderId)
     },
@@ -332,6 +380,7 @@ export function registerIpc(db) {
     'orders:addItemWithMods': ({ orderId, productId, optionIds }) => {
       const product = db.prepare('SELECT * FROM products WHERE id = ?').get(productId)
       if (!product) throw new Error('Product not found')
+      if (product.stock < 1) throw new Error(`Not enough stock for ${product.name}`)
       let delta = 0
       let label = ''
       const ids = (optionIds || []).filter((x) => x != null)
@@ -345,6 +394,7 @@ export function registerIpc(db) {
       db.prepare(
         'INSERT INTO order_items (order_id, product_id, name, unit_price, qty, modifiers) VALUES (?, ?, ?, ?, 1, ?)'
       ).run(orderId, productId, product.name, product.price + delta, label || null)
+      db.prepare('UPDATE products SET stock = stock - 1 WHERE id = ?').run(productId) // reserve the unit
       recalcOrder(orderId)
       return getOrderWithItems(orderId)
     },
@@ -352,8 +402,16 @@ export function registerIpc(db) {
     'orders:setItemQty': ({ itemId, qty }) => {
       const item = db.prepare('SELECT * FROM order_items WHERE id = ?').get(itemId)
       if (!item) throw new Error('Item not found')
-      if (qty <= 0) db.prepare('DELETE FROM order_items WHERE id = ?').run(itemId)
-      else db.prepare('UPDATE order_items SET qty = ? WHERE id = ?').run(qty, itemId)
+      const newQty = Math.max(0, qty)
+      const delta = newQty - item.qty // positive => reserve more units
+      if (delta > 0 && item.product_id) {
+        const product = db.prepare('SELECT name, stock FROM products WHERE id = ?').get(item.product_id)
+        if (!product || product.stock < delta) throw new Error(`Not enough stock${product ? ' for ' + product.name : ''}`)
+      }
+      if (newQty <= 0) db.prepare('DELETE FROM order_items WHERE id = ?').run(itemId)
+      else db.prepare('UPDATE order_items SET qty = ? WHERE id = ?').run(newQty, itemId)
+      // Reserve the extra units (delta > 0) or return the freed ones (delta < 0).
+      if (item.product_id && delta !== 0) db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?').run(delta, item.product_id)
       recalcOrder(item.order_id)
       return getOrderWithItems(item.order_id)
     },
@@ -361,6 +419,7 @@ export function registerIpc(db) {
     'orders:removeItem': ({ itemId }) => {
       const item = db.prepare('SELECT * FROM order_items WHERE id = ?').get(itemId)
       if (!item) return null
+      if (item.product_id) db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?').run(item.qty, item.product_id) // return reserved stock
       db.prepare('DELETE FROM order_items WHERE id = ?').run(itemId)
       recalcOrder(item.order_id)
       return getOrderWithItems(item.order_id)
@@ -382,6 +441,7 @@ export function registerIpc(db) {
 
     'orders:void': ({ orderId }) => {
       const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId)
+      if (order && order.status === 'open') restoreOrderStock(orderId) // put reserved stock back
       if (order && order.table_id) db.prepare("UPDATE tables SET status = 'open' WHERE id = ?").run(order.table_id)
       db.prepare('DELETE FROM orders WHERE id = ?').run(orderId)
       return { ok: true }
@@ -410,22 +470,24 @@ export function registerIpc(db) {
       db.prepare(
         "UPDATE orders SET status = 'paid', cash_received = ?, change_due = ?, paid_at = datetime('now') WHERE id = ?"
       ).run(cash, change, orderId)
-      // Draw down stock for each sold item.
-      const dec = db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?')
-      for (const it of order.items) if (it.product_id) dec.run(it.qty, it.product_id)
+      // Stock was already reserved when each item was added to the order, so there's
+      // nothing to draw down here — the units simply convert from reserved to sold.
       if (order.table_id) db.prepare("UPDATE tables SET status = 'open' WHERE id = ?").run(order.table_id)
       return getOrderWithItems(orderId)
     },
 
     // ---------------- History admin actions ----------------
-    // Cancel a paid order: restore stock and mark it cancelled (drops out of history & analytics).
+    // Delete a paid order: restore stock and mark it cancelled. It stays in history,
+    // tagged with who deleted it, but is excluded from revenue/analytics.
+    // Any signed-in user may delete any order.
     'orders:cancelPaid': ({ orderId }) => {
       const order = getOrderWithItems(orderId)
       if (!order) throw new Error('Order not found')
-      if (order.status !== 'paid') throw new Error('Only paid orders can be cancelled')
+      if (order.status !== 'paid') throw new Error('Only paid orders can be deleted')
       const inc = db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?')
       for (const it of order.items) if (it.product_id) inc.run(it.qty, it.product_id)
-      db.prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?").run(orderId)
+      const by = currentUser ? currentUser.name || currentUser.username : 'Unknown'
+      db.prepare("UPDATE orders SET status = 'cancelled', deleted_at = datetime('now'), deleted_by = ? WHERE id = ?").run(by, orderId)
       return { ok: true }
     },
 
@@ -433,6 +495,25 @@ export function registerIpc(db) {
     'orders:updatePaid': ({ orderId, items, discountType, discountValue }) => {
       const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId)
       if (!order || order.status !== 'paid') throw new Error('Order is not editable')
+
+      // Validate before mutating: this order's quantities are already reserved from
+      // stock, so raising a line by N units needs N more units still on hand.
+      // Aggregate the net change per product so multi-line products are checked once.
+      const netDelta = new Map() // productId -> (oldQty - newQty) summed; negative => consumes more
+      for (const change of items || []) {
+        const item = db.prepare('SELECT * FROM order_items WHERE id = ? AND order_id = ?').get(change.id, orderId)
+        if (!item || !item.product_id) continue
+        const newQty = Math.max(0, Math.round(change.qty))
+        netDelta.set(item.product_id, (netDelta.get(item.product_id) || 0) + (item.qty - newQty))
+      }
+      for (const [productId, delta] of netDelta) {
+        if (delta >= 0) continue // returning stock is always fine
+        const product = db.prepare('SELECT name, stock FROM products WHERE id = ?').get(productId)
+        if (product && product.stock + delta < 0) {
+          throw new Error(`Not enough stock for ${product.name} — only ${product.stock} more available`)
+        }
+      }
+
       const adjust = db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?')
       for (const change of items || []) {
         const item = db.prepare('SELECT * FROM order_items WHERE id = ? AND order_id = ?').get(change.id, orderId)
@@ -476,11 +557,14 @@ export function registerIpc(db) {
     'orders:history': ({ date }) => {
       const where = date ? "AND date(paid_at,'localtime') = ?" : ''
       const params = date ? [date] : []
+      // Every user sees the full history. Deleted (cancelled) orders stay listed,
+      // tagged with who removed them.
       return db
         .prepare(
-          `SELECT o.id, o.table_label, o.subtotal, o.discount, o.total, o.cash_received, o.change_due, o.paid_at, o.user_name,
+          `SELECT o.id, o.table_label, o.subtotal, o.discount, o.total, o.cash_received, o.change_due, o.paid_at, o.user_id, o.user_name,
+                  o.status, o.deleted_at, o.deleted_by,
                   (SELECT COALESCE(SUM(qty),0) FROM order_items WHERE order_id = o.id) AS item_count
-           FROM orders o WHERE o.status = 'paid' ${where}
+           FROM orders o WHERE o.status IN ('paid','cancelled') ${where}
            ORDER BY o.paid_at DESC LIMIT 200`
         )
         .all(...params)
@@ -489,7 +573,9 @@ export function registerIpc(db) {
     // ---------------- Analytics ----------------
     'analytics:overview': () => {
       const q = (cond) =>
-        db.prepare(`SELECT COALESCE(SUM(total),0) AS total, COUNT(*) AS count FROM orders WHERE status = 'paid' AND ${cond}`).get()
+        db
+          .prepare(`SELECT COALESCE(SUM(total),0) AS total, COUNT(*) AS count FROM orders WHERE status = 'paid' AND ${ownOrders('orders')} AND ${cond}`)
+          .get()
       return {
         today: q("date(paid_at,'localtime') = date('now','localtime')"),
         week: q("strftime('%Y-%W', paid_at,'localtime') = strftime('%Y-%W','now','localtime')"),
@@ -503,7 +589,7 @@ export function registerIpc(db) {
         .prepare(
           `SELECT date(paid_at,'localtime') AS d, strftime('%Y-%W', paid_at,'localtime') AS w,
                   strftime('%Y-%m', paid_at,'localtime') AS m, strftime('%Y', paid_at,'localtime') AS y, total
-           FROM orders WHERE status = 'paid'`
+           FROM orders WHERE status = 'paid' AND ${ownOrders('orders')}`
         )
         .all()
       return buildSeries(rows, period)
@@ -515,7 +601,7 @@ export function registerIpc(db) {
         .prepare(
           `SELECT oi.name AS name, SUM(oi.qty) AS qty, SUM(oi.qty * oi.unit_price) AS revenue
            FROM order_items oi JOIN orders o ON o.id = oi.order_id
-           WHERE o.status = 'paid' AND ${where}
+           WHERE o.status = 'paid' AND ${ownOrders('o')} AND ${where}
            GROUP BY oi.name ORDER BY revenue DESC LIMIT 10`
         )
         .all()
@@ -527,7 +613,7 @@ export function registerIpc(db) {
       return db
         .prepare(
           `SELECT COALESCE(o.user_name, 'Unknown') AS name, COUNT(*) AS orders, COALESCE(SUM(o.total),0) AS revenue
-           FROM orders o WHERE o.status = 'paid' AND ${where}
+           FROM orders o WHERE o.status = 'paid' AND ${ownOrders('o')} AND ${where}
            GROUP BY COALESCE(o.user_name, 'Unknown') ORDER BY revenue DESC`
         )
         .all()
@@ -537,7 +623,7 @@ export function registerIpc(db) {
       db
         .prepare(
           `SELECT id, table_label, total, cash_received, change_due, paid_at
-           FROM orders WHERE status = 'paid' ORDER BY paid_at DESC LIMIT 25`
+           FROM orders WHERE status = 'paid' AND ${ownOrders('orders')} ORDER BY paid_at DESC LIMIT 25`
         )
         .all()
   }

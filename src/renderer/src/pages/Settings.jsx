@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../lib/api'
 import { useSettings } from '../lib/settings'
 import { useLicense } from '../lib/license'
+import { useDialog } from '../components/Dialog'
 import PageHeader from '../components/PageHeader'
 
 // Local preview formatter (mirrors lib/settings money()).
@@ -47,6 +48,7 @@ export default function Settings() {
 
       <div className="grid grid-cols-2 gap-6 overflow-y-auto pr-1 pb-4">
         <LicenseSection />
+        <BackupSection />
 
         {/* Shop info */}
         <Section title="Shop information">
@@ -186,6 +188,66 @@ function Field({ label, children }) {
       <span className="text-muted text-sm">{label}</span>
       <div className="mt-1.5">{children}</div>
     </label>
+  )
+}
+
+function BackupSection() {
+  const { status } = useLicense()
+  const { confirm, alert } = useDialog()
+  const [busy, setBusy] = useState(false)
+  const licensed = status?.state === 'licensed'
+
+  const doExport = async () => {
+    setBusy(true)
+    try {
+      const res = await api.db.export()
+      if (res?.ok) alert({ title: 'Backup saved', message: res.path })
+    } catch (e) {
+      alert({ title: 'Export failed', message: e.message })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const doImport = async () => {
+    const ok = await confirm({
+      title: 'Import database',
+      message:
+        'This replaces ALL current data with the chosen backup and restarts the app. A copy of the current data is saved first. Continue?',
+      confirmText: 'Choose file & import',
+      cancelText: 'Cancel',
+      danger: true
+    })
+    if (!ok) return
+    setBusy(true)
+    try {
+      await api.db.import() // on success the app relaunches; cancel/error returns here
+    } catch (e) {
+      alert({ title: 'Import failed', message: e.message })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Section title="Backup & restore">
+      {!licensed ? (
+        <p className="text-muted text-sm">
+          Database backup and restore require an active license. Activate a license to enable it.
+        </p>
+      ) : (
+        <>
+          <p className="text-muted text-sm">
+            Export saves a complete copy of your data — products, sales, users and settings — to a file you choose. Import
+            replaces all current data with a backup and restarts the app.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <button className="btn-accent" disabled={busy} onClick={doExport}>Export backup</button>
+            <button className="btn-ghost" disabled={busy} onClick={doImport}>Import backup</button>
+          </div>
+        </>
+      )}
+    </Section>
   )
 }
 

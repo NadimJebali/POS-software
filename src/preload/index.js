@@ -15,13 +15,30 @@ const CHANNELS = [
   'orders:addPayment', 'orders:removePayment', 'orders:complete', 'orders:history',
   'orders:cancelPaid', 'orders:updatePaid',
   'receipt:print',
-  'analytics:overview', 'analytics:series', 'analytics:topProducts', 'analytics:byServer', 'analytics:recentOrders'
+  'analytics:overview', 'analytics:series', 'analytics:topProducts', 'analytics:byServer', 'analytics:recentOrders',
+  'db:export', 'db:import'
 ]
+
+// Electron wraps any error thrown by an ipcMain handler as
+//   "Error invoking remote method '<channel>': Error: <real message>"
+// Strip that scaffolding so the UI shows only the message we actually threw.
+function cleanMessage(err) {
+  let msg = (err && err.message) || String(err)
+  msg = msg.replace(/^Error invoking remote method '[^']*':\s*/, '')
+  msg = msg.replace(/^(?:[A-Za-z]+Error|Error):\s*/, '')
+  return msg.trim() || 'Something went wrong'
+}
 
 const api = {}
 for (const channel of CHANNELS) {
   // window.pos['categories:list'](payload) -> invoke
-  api[channel] = (payload) => ipcRenderer.invoke(channel, payload)
+  api[channel] = async (payload) => {
+    try {
+      return await ipcRenderer.invoke(channel, payload)
+    } catch (err) {
+      throw new Error(cleanMessage(err))
+    }
+  }
 }
 
 contextBridge.exposeInMainWorld('pos', api)

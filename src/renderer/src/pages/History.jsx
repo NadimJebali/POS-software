@@ -30,9 +30,9 @@ export default function History() {
 
   const cancelOrder = async (id) => {
     const ok = await confirm({
-      title: 'Cancel order',
-      message: 'Cancel this order? It will be removed from history and its stock restored.',
-      confirmText: 'Cancel order',
+      title: 'Delete order',
+      message: 'Delete this order? It stays in history marked as deleted, its stock is restored, and it no longer counts towards sales.',
+      confirmText: 'Delete order',
       cancelText: 'Keep',
       danger: true
     })
@@ -56,7 +56,8 @@ export default function History() {
     }
   }
 
-  const total = orders.reduce((s, o) => s + o.total, 0)
+  // Deleted orders stay listed but don't count towards the period total.
+  const total = orders.reduce((s, o) => s + (o.status === 'cancelled' ? 0 : o.total), 0)
 
   const reprint = async (id) => {
     setPrinting(id)
@@ -103,19 +104,26 @@ export default function History() {
             </tr>
           </thead>
           <tbody>
-            {orders.map((o) => (
+            {orders.map((o) => {
+              const deleted = o.status === 'cancelled'
+              return (
               <tr
                 key={o.id}
                 onClick={() => openDetail(o.id)}
-                className="border-t border-line/60 text-lg hover:bg-surface2/40 cursor-pointer"
+                className={`border-t border-line/60 text-lg hover:bg-surface2/40 cursor-pointer ${deleted ? 'opacity-60' : ''}`}
               >
-                <td className="px-5 py-3.5 font-semibold tnum">#{o.id}</td>
+                <td className="px-5 py-3.5 font-semibold tnum">
+                  #{o.id}
+                  {deleted && (
+                    <span className="ml-2 chip bg-berry/20 text-berry text-xs align-middle">deleted by {o.deleted_by || '—'}</span>
+                  )}
+                </td>
                 <td className="px-5 py-3.5">{o.table_label || '—'}</td>
                 <td className="px-5 py-3.5">{o.user_name || '—'}</td>
                 <td className="px-5 py-3.5 text-muted tnum">{new Date(o.paid_at + 'Z').toLocaleString()}</td>
                 <td className="px-5 py-3.5 text-center tnum">{o.item_count}</td>
                 <td className="px-5 py-3.5 text-right tnum text-berry">{o.discount > 0 ? '- ' + money(o.discount) : '—'}</td>
-                <td className="px-5 py-3.5 text-right font-display font-bold text-ember tnum">{money(o.total)}</td>
+                <td className={`px-5 py-3.5 text-right font-display font-bold tnum ${deleted ? 'text-muted line-through' : 'text-ember'}`}>{money(o.total)}</td>
                 <td className={`px-5 py-3.5 text-right tnum ${o.change_due > 0 ? 'text-mint' : 'text-muted'}`}>{money(o.change_due)}</td>
                 <td className="px-5 py-3.5 text-right">
                   <button
@@ -130,7 +138,8 @@ export default function History() {
                   </button>
                 </td>
               </tr>
-            ))}
+              )
+            })}
             {orders.length === 0 && (
               <tr><td colSpan={9} className="px-5 py-12 text-center text-muted">No orders for this period.</td></tr>
             )}
@@ -142,6 +151,7 @@ export default function History() {
         <OrderDetail
           order={detail}
           isAdmin={isAdmin}
+          canDelete={detail.status !== 'cancelled'}
           onClose={() => setDetail(null)}
           onReprint={() => reprint(detail.id)}
           printing={printing === detail.id}
@@ -155,11 +165,12 @@ export default function History() {
 
 const DISCOUNTS = [0, 5, 10, 15]
 
-function OrderDetail({ order, isAdmin, onClose, onReprint, printing, onCancel, onSave }) {
+function OrderDetail({ order, isAdmin, canDelete, onClose, onReprint, printing, onCancel, onSave }) {
   const [edit, setEdit] = useState(false)
   const [qty, setQty] = useState({})
   const [disc, setDisc] = useState(null) // null = keep existing; number = percent
   const when = new Date(order.paid_at + 'Z').toLocaleString()
+  const deleted = order.status === 'cancelled'
 
   useEffect(() => {
     setQty(Object.fromEntries(order.items.map((i) => [i.id, i.qty])))
@@ -194,6 +205,14 @@ function OrderDetail({ order, isAdmin, onClose, onReprint, printing, onCancel, o
         <span className="chip bg-surface3 text-muted">Served by</span>
         <span className="font-semibold text-cream">{order.user_name || 'Unknown'}</span>
       </div>
+
+      {deleted && (
+        <div className="mb-3 rounded-xl bg-berry/15 border border-berry/40 px-4 py-2.5 text-sm">
+          <span className="font-semibold text-berry">Deleted</span>
+          <span className="text-cream"> by {order.deleted_by || 'Unknown'}</span>
+          {order.deleted_at && <span className="text-muted"> · {new Date(order.deleted_at + 'Z').toLocaleString()}</span>}
+        </div>
+      )}
 
       <div className="max-h-[42vh] overflow-y-auto -mx-1 px-1 divide-y divide-line/60">
         {order.items.map((it) => (
@@ -261,14 +280,18 @@ function OrderDetail({ order, isAdmin, onClose, onReprint, printing, onCancel, o
         </div>
       ) : (
         <div className="space-y-3 pt-2">
-          {isAdmin && (
+          {(isAdmin || canDelete) && !deleted && (
             <div className="flex gap-3">
-              <button className="btn-ghost flex-1" onClick={() => setEdit(true)}>
-                <IconEdit width={18} height={18} /> Edit
-              </button>
-              <button className="btn-danger flex-1" onClick={onCancel}>
-                <IconTrash width={18} height={18} /> Cancel order
-              </button>
+              {isAdmin && (
+                <button className="btn-ghost flex-1" onClick={() => setEdit(true)}>
+                  <IconEdit width={18} height={18} /> Edit
+                </button>
+              )}
+              {canDelete && (
+                <button className="btn-danger flex-1" onClick={onCancel}>
+                  <IconTrash width={18} height={18} /> Delete order
+                </button>
+              )}
             </div>
           )}
           <div className="flex gap-3">

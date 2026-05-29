@@ -32,7 +32,7 @@ export async function initDatabase() {
 }
 
 // Locate the sql.js WebAssembly binary in node_modules.
-function resolveWasm() {
+export function resolveWasm() {
   const candidates = []
   try {
     candidates.push(require.resolve('sql.js/dist/sql-wasm.wasm'))
@@ -48,8 +48,9 @@ function resolveWasm() {
 // Adapter exposing a better-sqlite3-like synchronous API over sql.js.
 function makeAdapter(sqldb, writeToDisk) {
   let txDepth = 0
+  let detached = false
   const persist = () => {
-    if (txDepth === 0) writeToDisk()
+    if (!detached && txDepth === 0) writeToDisk()
   }
   const lastInsertRowid = () => {
     const r = sqldb.exec('SELECT last_insert_rowid() AS id')
@@ -117,8 +118,13 @@ function makeAdapter(sqldb, writeToDisk) {
         }
       }
     },
+    // Stop persisting to disk. Used right before an import replaces the database
+    // file, so this outgoing in-memory copy can't overwrite the imported one on quit.
+    detach() {
+      detached = true
+    },
     close() {
-      writeToDisk()
+      if (!detached) writeToDisk()
       sqldb.close()
     }
   }
@@ -227,13 +233,36 @@ function migrate(db) {
   addColumnIfMissing(db, 'orders', 'discount', 'INTEGER NOT NULL DEFAULT 0')
   addColumnIfMissing(db, 'orders', 'user_id', 'INTEGER')
   addColumnIfMissing(db, 'orders', 'user_name', 'TEXT')
+  addColumnIfMissing(db, 'orders', 'deleted_at', 'TEXT')
+  addColumnIfMissing(db, 'orders', 'deleted_by', 'TEXT')
   addColumnIfMissing(db, 'products', 'stock', 'INTEGER NOT NULL DEFAULT 0')
   addColumnIfMissing(db, 'products', 'barcode', 'TEXT')
   addColumnIfMissing(db, 'order_items', 'modifiers', 'TEXT')
 
   seedSettings(db)
+  reserveOpenOrderStockOnce(db)
   // No default user is seeded — the first admin is created in the app's
   // first-run setup screen (see auth:setup in ipc.js).
+}
+
+// Stock is now reserved when an item is added to an open order (not at checkout).
+// Databases created before this change have open orders whose items were never
+// drawn from stock — deduct them once so on-hand counts match the new model.
+function reserveOpenOrderStockOnce(db) {
+  if (db.prepare("SELECT 1 FROM settings WHERE key = 'mig_reserve_open_stock'").get()) return
+  const items = db
+    .prepare(
+      `SELECT oi.product_id AS pid, oi.qty AS qty
+       FROM order_items oi JOIN orders o ON o.id = oi.order_id
+       WHERE o.status = 'open' AND oi.product_id IS NOT NULL`
+    )
+    .all()
+  const dec = db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?')
+  const run = db.transaction(() => {
+    for (const it of items) dec.run(it.qty, it.pid)
+    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('mig_reserve_open_stock', '1')").run()
+  })
+  run()
 }
 
 function addColumnIfMissing(db, table, column, definition) {
