@@ -15,6 +15,7 @@ export default function Analytics() {
   const [period, setPeriod] = useState('daily')
   const [series, setSeries] = useState([])
   const [top, setTop] = useState([])
+  const [servers, setServers] = useState([])
 
   useEffect(() => {
     api.analytics.overview().then(setOverview)
@@ -24,7 +25,10 @@ export default function Analytics() {
     const p = PERIODS.find((x) => x.key === period)
     api.analytics.series(period).then(setSeries)
     api.analytics.topProducts(p.metric).then(setTop)
+    api.analytics.byServer(p.metric).then(setServers)
   }, [period])
+
+  const serverMax = Math.max(1, ...servers.map((s) => s.revenue))
 
   const max = Math.max(1, ...series.map((s) => s.total))
   const periodObj = PERIODS.find((p) => p.key === period)
@@ -91,6 +95,34 @@ export default function Analytics() {
             ))}
           </div>
         </div>
+      </div>
+
+      {/* sales by server */}
+      <div className="card p-6 mt-6">
+        <h2 className="font-display text-xl font-bold mb-5">Sales by server · {periodObj.metricLabel}</h2>
+        {servers.length === 0 ? (
+          <p className="text-muted">No sales in this period.</p>
+        ) : (
+          <div className="space-y-4">
+            {servers.map((s, i) => (
+              <div key={i}>
+                <div className="flex items-baseline justify-between mb-1.5">
+                  <span className="font-semibold">{s.name}</span>
+                  <span className="text-sm text-muted tnum">
+                    {s.orders} order{s.orders === 1 ? '' : 's'} ·{' '}
+                    <span className="font-display font-bold text-ember">{money(s.revenue)}</span>
+                  </span>
+                </div>
+                <div className="h-3 rounded-full bg-surface2 overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{ width: `${(s.revenue / serverMax) * 100}%`, background: 'linear-gradient(90deg,#ec9a45,#f7b96b)' }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

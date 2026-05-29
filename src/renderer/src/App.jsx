@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './lib/auth'
 import Layout from './components/Layout'
 import Login from './pages/Login'
+import Setup from './pages/Setup'
 import Floor from './pages/Floor'
 import Order from './pages/Order'
 import Checkout from './pages/Checkout'
@@ -13,9 +14,11 @@ import Settings from './pages/Settings'
 import Users from './pages/Users'
 
 export default function App() {
-  const { user, isAdmin } = useAuth()
+  const { user, isAdmin, needsSetup } = useAuth()
 
-  // Everything is behind the login screen.
+  if (needsSetup === null) return null // still checking — avoid a flash of the login screen
+  if (needsSetup) return <Setup /> // first run: create the admin account
+  // Everything else is behind the login screen.
   if (!user) return <Login />
 
   // Admin-only pages redirect cashiers back to the floor.

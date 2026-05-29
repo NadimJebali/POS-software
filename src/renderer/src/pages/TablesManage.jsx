@@ -4,12 +4,14 @@ import { api } from '../lib/api'
 import { money } from '../lib/settings'
 import PageHeader from '../components/PageHeader'
 import Modal from '../components/Modal'
+import { useDialog } from '../components/Dialog'
 import { IconPlus, IconTrash } from '../components/icons'
 
 export default function TablesManage() {
   const [tables, setTables] = useState([])
   const [editing, setEditing] = useState(null)
   const navigate = useNavigate()
+  const { confirm, alert } = useDialog()
 
   const load = () => api.tables.list().then(setTables)
   useEffect(() => {
@@ -24,16 +26,16 @@ export default function TablesManage() {
   }
 
   const remove = async (t) => {
-    const msg =
+    const message =
       t.status === 'occupied'
         ? `Table ${t.label} has an open order. Delete the table and discard that order?`
         : `Delete table ${t.label}?`
-    if (!confirm(msg)) return
+    if (!(await confirm({ title: 'Delete table', message, confirmText: 'Delete', danger: true }))) return
     try {
       await api.tables.remove(t.id)
       load()
     } catch (e) {
-      alert('Could not delete table: ' + e.message)
+      alert({ title: 'Could not delete table', message: e.message })
     }
   }
 

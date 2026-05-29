@@ -3,10 +3,12 @@ import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import PageHeader from '../components/PageHeader'
 import Modal from '../components/Modal'
+import { useDialog } from '../components/Dialog'
 import { IconPlus, IconTrash } from '../components/icons'
 
 export default function Users() {
   const { user: me } = useAuth()
+  const { confirm, alert } = useDialog()
   const [users, setUsers] = useState([])
   const [editing, setEditing] = useState(null)
 
@@ -22,17 +24,17 @@ export default function Users() {
       setEditing(null)
       load()
     } catch (e) {
-      alert(e.message)
+      alert({ title: 'Error', message: e.message })
     }
   }
 
   const remove = async (u) => {
-    if (!confirm(`Delete user "${u.name || u.username}"?`)) return
+    if (!(await confirm({ title: 'Delete user', message: `Delete user “${u.name || u.username}”?`, confirmText: 'Delete', danger: true }))) return
     try {
       await api.users.remove(u.id)
       load()
     } catch (e) {
-      alert(e.message)
+      alert({ title: 'Error', message: e.message })
     }
   }
 

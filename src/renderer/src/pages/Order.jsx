@@ -1,19 +1,26 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../lib/api'
-import { money, useSettings } from '../lib/settings'
+import { money, unitsToMillis, useSettings } from '../lib/settings'
+import Modal from '../components/Modal'
+import { useDialog } from '../components/Dialog'
 import { IconBack, IconTrash } from '../components/icons'
 
 export default function Order() {
   const { tableId } = useParams()
   const navigate = useNavigate()
   const { settings } = useSettings()
+  const { confirm } = useDialog()
   const threshold = parseInt(settings.low_stock_threshold || '5', 10)
 
   const [order, setOrder] = useState(null)
   const [categories, setCategories] = useState([])
   const [activeCat, setActiveCat] = useState(null)
   const [products, setProducts] = useState([])
+  const [stockMap, setStockMap] = useState({})
+  const [toast, setToast] = useState(null)
+  const [picker, setPicker] = useState(null) // { product, groups } when choosing modifiers
+  const scan = useRef({ buf: '', last: 0 })
 
   useEffect(() => {
     api.orders.openForTable(Number(tableId)).then(setOrder)
@@ -21,23 +28,97 @@ export default function Order() {
       setCategories(cats)
       if (cats.length) setActiveCat(cats[0].id)
     })
+    // stock for every product, for warnings as items are added
+    api.products.list().then((ps) => setStockMap(Object.fromEntries(ps.map((p) => [p.id, p.stock]))))
   }, [tableId])
 
   useEffect(() => {
     if (activeCat != null) api.products.byCategory(activeCat).then(setProducts)
   }, [activeCat])
 
-  const addProduct = (p) => api.orders.addItem(order.id, p.id).then(setOrder)
+  const warn = (level, text) => setToast({ level, text, at: Date.now() })
+
+  const warnStock = (p) => {
+    if (p.stock <= 0) warn('out', `${p.name} is out of stock`)
+    else if (p.stock <= threshold) warn('low', `${p.name} is running low — ${p.stock} left`)
+  }
+
+  // Tap a product: if it has size/extra options, open the picker; otherwise add directly.
+  const addProduct = async (p) => {
+    if (p.modifier_count > 0) {
+      const groups = await api.products.modifiers(p.id)
+      setPicker({ product: p, groups })
+      return
+    }
+    setOrder(await api.orders.addItem(order.id, p.id))
+    warnStock(p)
+  }
+
+  const confirmPicker = async (optionIds) => {
+    const p = picker.product
+    setOrder(await api.orders.addItemWithMods(order.id, p.id, optionIds))
+    setPicker(null)
+    warnStock(p)
+  }
+
+  // auto-dismiss the toast
+  useEffect(() => {
+    if (!toast) return
+    const id = setTimeout(() => setToast(null), 3000)
+    return () => clearTimeout(id)
+  }, [toast])
+
+  // Barcode scanner support: scanners type fast and end with Enter.
+  useEffect(() => {
+    if (!order) return
+    const onKey = async (e) => {
+      const el = document.activeElement
+      if (el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return // don't hijack real typing
+      const now = Date.now()
+      const s = scan.current
+      if (e.key === 'Enter') {
+        const code = s.buf
+        s.buf = ''
+        if (code.length >= 3) {
+          const p = await api.products.byBarcode(code)
+          if (p) addProduct(p)
+          else warn('out', `No product for barcode ${code}`)
+        }
+        return
+      }
+      if (e.key.length === 1) {
+        if (now - s.last > 100) s.buf = '' // reset if it wasn't a fast burst
+        s.buf += e.key
+        s.last = now
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [order, picker])
   const changeQty = (item, delta) => api.orders.setItemQty(item.id, item.qty + delta).then(setOrder)
 
   const cancelOrder = async () => {
-    if (order.items.length && !confirm('Cancel this order and clear the table?')) return
+    if (
+      order.items.length &&
+      !(await confirm({
+        title: 'Cancel order',
+        message: 'Cancel this order and clear the table?',
+        confirmText: 'Cancel order',
+        cancelText: 'Keep',
+        danger: true
+      }))
+    )
+      return
     await api.orders.void(order.id)
     navigate('/')
   }
 
   if (!order) return <div className="p-8 text-muted">Loading…</div>
   const itemCount = order.items.reduce((s, i) => s + i.qty, 0)
+  // Items on the ticket that exceed available stock (incl. out-of-stock).
+  const oversold = order.items.filter(
+    (i) => i.product_id && stockMap[i.product_id] != null && i.qty > Math.max(0, stockMap[i.product_id])
+  )
 
   return (
     <div className="h-screen flex">
@@ -69,29 +150,61 @@ export default function Order() {
         </div>
 
         <div className="grid grid-cols-3 xl:grid-cols-4 gap-3 overflow-y-auto pr-1 content-start">
-          {products.map((p, i) => (
-            <button
-              key={p.id}
-              onClick={() => addProduct(p)}
-              style={{ animationDelay: `${Math.min(i * 20, 300)}ms` }}
-              className="animate-rise card p-4 h-28 flex flex-col justify-between text-left hover:border-ember/40 hover:bg-surface2 active:scale-[0.97] transition-all"
-            >
-              <span className="text-lg font-semibold leading-tight">{p.name}</span>
-              <span className="flex items-center justify-between gap-2">
-                <span className="text-ember font-display font-bold text-lg tnum">{money(p.price)}</span>
-                {p.stock <= 0 ? (
-                  <span className="text-[11px] font-semibold text-berry">Out</span>
-                ) : p.stock <= threshold ? (
-                  <span className="text-[11px] font-semibold text-ember tnum">{p.stock} left</span>
-                ) : (
-                  <span className="text-[11px] text-muted tnum">{p.stock}</span>
+          {products.map((p, i) => {
+            const out = p.stock <= 0
+            const low = !out && p.stock <= threshold
+            return (
+              <button
+                key={p.id}
+                onClick={() => addProduct(p)}
+                style={{ animationDelay: `${Math.min(i * 20, 300)}ms` }}
+                className={`animate-rise relative card p-4 h-28 flex flex-col justify-between text-left active:scale-[0.97] transition-all overflow-hidden ${
+                  out
+                    ? 'border-berry/60 ring-1 ring-berry/40 hover:bg-surface2'
+                    : low
+                      ? 'border-ember/60 ring-1 ring-ember/30 hover:bg-surface2'
+                      : 'hover:border-ember/40 hover:bg-surface2'
+                }`}
+              >
+                {(out || low) && (
+                  <span
+                    className={`absolute top-0 right-0 px-2 py-0.5 rounded-bl-xl text-[10px] font-bold ${
+                      out ? 'bg-berry text-white' : 'bg-ember text-[#2a1c0c]'
+                    }`}
+                  >
+                    {out ? 'OUT' : 'LOW'}
+                  </span>
                 )}
-              </span>
-            </button>
-          ))}
+                <span className="text-lg font-semibold leading-tight pr-8">
+                  {p.name}
+                  {p.modifier_count > 0 && <span className="text-[10px] text-muted font-normal ml-1">• options</span>}
+                </span>
+                <span className="flex items-center justify-between gap-2">
+                  <span className="text-ember font-display font-bold text-lg tnum">{money(p.price)}</span>
+                  <span className={`text-[11px] font-semibold tnum ${out ? 'text-berry' : low ? 'text-ember' : 'text-muted'}`}>
+                    {out ? 'out of stock' : `${p.stock} left`}
+                  </span>
+                </span>
+              </button>
+            )
+          })}
           {products.length === 0 && <p className="text-muted col-span-full mt-4">No products in this category.</p>}
         </div>
       </div>
+
+      {/* low/out-of-stock toast */}
+      {toast && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 animate-pop">
+          <div
+            className={`flex items-center gap-3 px-5 py-3 rounded-2xl shadow-soft border font-semibold ${
+              toast.level === 'out' ? 'bg-berry text-white border-berry' : 'bg-ember text-[#2a1c0c] border-ember'
+            }`}
+          >
+            <span className="text-xl">⚠️</span>
+            {toast.text}
+          </div>
+        </div>
+      )}
 
       {/* ---------- Order ticket ---------- */}
       <div className="w-[400px] shrink-0 bg-surface/80 border-l border-line backdrop-blur-md flex flex-col">
@@ -100,12 +213,24 @@ export default function Order() {
           <p className="text-muted">{itemCount} item{itemCount === 1 ? '' : 's'}</p>
         </div>
 
+        {oversold.length > 0 && (
+          <div className="mx-4 mt-3 rounded-xl bg-berry/15 border border-berry/40 px-4 py-2.5 text-sm">
+            <div className="font-semibold text-berry mb-0.5">⚠️ Not enough stock</div>
+            {oversold.map((i) => (
+              <div key={i.id} className="text-cream tnum">
+                {i.name}: ordering {i.qty}, only {Math.max(0, stockMap[i.product_id])} left
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="flex-1 overflow-y-auto px-4 py-2">
           {order.items.length === 0 && <p className="text-muted text-center mt-12">Ticket is empty.</p>}
           {order.items.map((item) => (
             <div key={item.id} className="flex items-center gap-2 py-3 border-b border-line/60 animate-pop">
               <div className="flex-1 min-w-0">
                 <div className="font-semibold truncate">{item.name}</div>
+                {item.modifiers && <div className="text-xs text-ember truncate">{item.modifiers}</div>}
                 <div className="text-sm text-muted tnum">{money(item.unit_price)} each</div>
               </div>
               <div className="flex items-center gap-1.5">
@@ -133,6 +258,70 @@ export default function Order() {
           </div>
         </div>
       </div>
+
+      {picker && <ModifierPicker product={picker.product} groups={picker.groups} onClose={() => setPicker(null)} onConfirm={confirmPicker} />}
     </div>
+  )
+}
+
+function ModifierPicker({ product, groups, onClose, onConfirm }) {
+  // selected: { [groupId]: number[] } of chosen option ids
+  const [selected, setSelected] = useState({})
+
+  const toggle = (group, optId) => {
+    setSelected((s) => {
+      const cur = s[group.id] || []
+      if (group.multi) {
+        return { ...s, [group.id]: cur.includes(optId) ? cur.filter((x) => x !== optId) : [...cur, optId] }
+      }
+      return { ...s, [group.id]: [optId] } // single choice
+    })
+  }
+
+  const allOptions = groups.flatMap((g) => g.options)
+  const chosenIds = Object.values(selected).flat()
+  const delta = chosenIds.reduce((sum, id) => sum + (allOptions.find((o) => o.id === id)?.price_delta || 0), 0)
+  const missingRequired = groups.some((g) => g.required && !(selected[g.id] || []).length)
+
+  return (
+    <Modal title={product.name} subtitle="Choose options" onClose={onClose} width={460}>
+      <div className="max-h-[50vh] overflow-y-auto space-y-4 -mx-1 px-1">
+        {groups.map((g) => (
+          <div key={g.id}>
+            <div className="flex items-baseline gap-2 mb-2">
+              <span className="font-semibold">{g.name}</span>
+              <span className="text-xs text-muted">{g.required ? 'required · ' : ''}{g.multi ? 'choose any' : 'choose one'}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {g.options.map((o) => {
+                const on = (selected[g.id] || []).includes(o.id)
+                return (
+                  <button
+                    key={o.id}
+                    onClick={() => toggle(g, o.id)}
+                    className={`px-4 py-3 rounded-xl border text-left transition ${on ? 'bg-ember text-[#2a1c0c] border-ember' : 'bg-surface2 border-line hover:bg-surface3'}`}
+                  >
+                    <div className="font-semibold">{o.name}</div>
+                    {o.price_delta !== 0 && <div className={`text-xs tnum ${on ? '' : 'text-muted'}`}>+{money(o.price_delta)}</div>}
+                  </button>
+                )
+              })}
+              {g.options.length === 0 && <p className="text-muted text-sm col-span-2">No options in this group.</p>}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-between pt-1">
+        <span className="text-muted">Item total</span>
+        <span className="font-display text-2xl font-bold text-ember tnum">{money(product.price + delta)}</span>
+      </div>
+      <div className="flex gap-3">
+        <button className="btn-ghost flex-1" onClick={onClose}>Cancel</button>
+        <button className="btn-accent flex-1" disabled={missingRequired} onClick={() => onConfirm(chosenIds)}>
+          {missingRequired ? 'Select required options' : 'Add to order'}
+        </button>
+      </div>
+    </Modal>
   )
 }

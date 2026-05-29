@@ -3,6 +3,8 @@ const call = (channel, payload) => window.pos[channel](payload)
 
 export const api = {
   auth: {
+    needsSetup: () => call('auth:needsSetup'),
+    setup: (data) => call('auth:setup', data),
     login: (username, pin) => call('auth:login', { username, pin }),
     logout: () => call('auth:logout'),
     current: () => call('auth:current'),
@@ -30,9 +32,17 @@ export const api = {
   products: {
     list: () => call('products:list'),
     byCategory: (categoryId) => call('products:byCategory', { categoryId }),
+    byBarcode: (barcode) => call('products:byBarcode', { barcode }),
     create: (data) => call('products:create', data),
     update: (data) => call('products:update', data),
-    remove: (id) => call('products:remove', { id })
+    remove: (id) => call('products:remove', { id }),
+    modifiers: (productId) => call('products:modifiers', { productId })
+  },
+  modifiers: {
+    createGroup: (data) => call('modgroups:create', data),
+    removeGroup: (id) => call('modgroups:remove', { id }),
+    createOption: (data) => call('modoptions:create', data),
+    removeOption: (id) => call('modoptions:remove', { id })
   },
   tables: {
     list: () => call('tables:list'),
@@ -44,6 +54,7 @@ export const api = {
     openForTable: (tableId) => call('orders:openForTable', { tableId }),
     get: (orderId) => call('orders:get', { orderId }),
     addItem: (orderId, productId) => call('orders:addItem', { orderId, productId }),
+    addItemWithMods: (orderId, productId, optionIds) => call('orders:addItemWithMods', { orderId, productId, optionIds }),
     setItemQty: (itemId, qty) => call('orders:setItemQty', { itemId, qty }),
     removeItem: (itemId) => call('orders:removeItem', { itemId }),
     setDiscount: (orderId, type, value) => call('orders:setDiscount', { orderId, type, value }),
@@ -63,6 +74,7 @@ export const api = {
     overview: () => call('analytics:overview'),
     series: (period) => call('analytics:series', { period }),
     topProducts: (period) => call('analytics:topProducts', { period }),
+    byServer: (period) => call('analytics:byServer', { period }),
     recentOrders: () => call('analytics:recentOrders')
   }
 }

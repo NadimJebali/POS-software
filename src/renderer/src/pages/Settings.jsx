@@ -84,6 +84,22 @@ export default function Settings() {
           </Field>
         </Section>
 
+        {/* Security */}
+        <Section title="Security">
+          <Field label="Auto-lock after idle minutes (0 = never)">
+            <input
+              className="input tnum"
+              type="number"
+              min={0}
+              value={form.auto_lock_minutes}
+              onChange={(e) => set('auto_lock_minutes', e.target.value)}
+            />
+          </Field>
+          <p className="text-muted text-sm">
+            When set, the app signs the current user out after this many minutes with no activity, so an unattended terminal returns to the login screen.
+          </p>
+        </Section>
+
         {/* Stock */}
         <Section title="Stock">
           <Field label="Low-stock warning threshold">

@@ -5,25 +5,25 @@ Built with **Electron + React + Vite + Tailwind** and a local **SQLite** databas
 
 ## Accounts & roles
 
-The app opens to a **login screen** (pick your name, enter a PIN). Two roles:
+**First run:** the very first launch shows a **setup screen** where you create your administrator account — business name (optional), your name, a username, and a PIN. No default password ships with the app. After that, the app opens to a **login screen** (pick your name, enter your PIN).
+
+Two roles:
 
 - **Administrator** — full access: manage users, edit settings, manage the menu & tables, and **edit or cancel orders in history**.
 - **Cashier (user)** — day-to-day only: take orders, checkout, view history (+ reprint), and view stats.
 
-Default accounts on first run (**change these in Users / Setup**):
+Add cashiers (and more admins) any time from the **Users** page. PINs are stored hashed (scrypt), never in plain text. Roles are enforced both in the UI and in the backend.
 
-| Username | PIN | Role |
-|----------|------|------|
-| `admin` | `1234` | Administrator |
-| `cashier` | `1111` | Cashier |
-
-PINs are stored hashed (scrypt), never in plain text. Roles are enforced both in the UI and in the backend.
+> To re-trigger first-run setup on a dev machine, clear the `users` table (or delete `%APPDATA%/pos-software/pos.db` for a full reset).
 
 ## Features
 
 - **Login & user management** — PIN login, admin-managed accounts (create/edit/disable/delete, reset PINs).
 - **Categories & products** — create categories (with colors), add products with prices & stock, list view, edit/delete.
-- **Stock tracking** — per-product stock, drawn down on each completed sale and restored when an order is cancelled. A configurable **low-stock threshold** (Setup) flags low/out items across the app, with a count badge on the Menu tab.
+- **Stock tracking** — per-product stock, drawn down on each completed sale and restored when an order is cancelled. A configurable **low-stock threshold** (Setup) flags low/out items across the app, with a count badge on the Menu tab; the order screen warns (badge, toast, ticket banner) when serving low/out items.
+- **Barcode scanning** — give a product a barcode in the Menu editor; on the order screen a USB scanner (keyboard-wedge) adds it instantly.
+- **Modifiers / variants** — attach option groups to a product (e.g. *Size* → S/M/L, *Extras* → +cheese) with price deltas; tapping the product prompts for choices, and the modifiers show on the ticket, checkout, receipt, and history.
+- **Auto-lock** — optionally sign the terminal out after N idle minutes (Setup → Security).
 - **Tables** — add/remove tables by number or reference (from the Floor or the Tables screen), see the floor at a glance (available vs. occupied + running total).
 - **Ordering** — tap a table, browse products by category, add items and adjust quantities on a live ticket.
 - **Checkout** — order total with **discounts** (percentage or fixed), **split / partial payments** (cash + card), automatic **change due**, and receipt printing.

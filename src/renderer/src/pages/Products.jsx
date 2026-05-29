@@ -3,6 +3,7 @@ import { api } from '../lib/api'
 import { money, unitsToMillis, useSettings } from '../lib/settings'
 import PageHeader from '../components/PageHeader'
 import Modal from '../components/Modal'
+import { useDialog } from '../components/Dialog'
 import { IconPlus, IconTrash } from '../components/icons'
 
 // Stock badge with low/out colouring.
@@ -16,6 +17,7 @@ const COLORS = ['#EC9A45', '#E26A52', '#54D6A0', '#6BA3F7', '#B583F7', '#F7B96B'
 
 export default function Products() {
   const { settings } = useSettings()
+  const { confirm } = useDialog()
   const threshold = parseInt(settings.low_stock_threshold || '5', 10)
   const [categories, setCategories] = useState([])
   const [products, setProducts] = useState([])
@@ -49,7 +51,7 @@ export default function Products() {
 
   const lowItems = products.filter((p) => p.stock <= threshold)
   const deleteProduct = async (p) => {
-    if (confirm(`Delete "${p.name}"?`)) {
+    if (await confirm({ title: 'Delete product', message: `Delete “${p.name}”?`, confirmText: 'Delete', danger: true })) {
       await api.products.remove(p.id)
       loadAll()
     }
@@ -61,7 +63,7 @@ export default function Products() {
     loadAll()
   }
   const deleteCategory = async (c) => {
-    if (confirm(`Delete category "${c.name}" and all its products?`)) {
+    if (await confirm({ title: 'Delete category', message: `Delete category “${c.name}” and all its products?`, confirmText: 'Delete', danger: true })) {
       await api.categories.remove(c.id)
       if (selectedCat === c.id) setSelectedCat(null)
       loadAll()
@@ -103,7 +105,7 @@ export default function Products() {
       {/* product list */}
       <div className="flex-1 flex flex-col p-7 overflow-hidden">
         <PageHeader title="Menu" subtitle={`${visible.length} product${visible.length === 1 ? '' : 's'}`}>
-          <button className="btn-accent" disabled={categories.length === 0} onClick={() => setEditing({ name: '', priceStr: '', category_id: selectedCat || categories[0]?.id, active: 1, stock: 0 })}>
+          <button className="btn-accent" disabled={categories.length === 0} onClick={() => setEditing({ name: '', priceStr: '', category_id: selectedCat || categories[0]?.id, active: 1, stock: 0, barcode: '' })}>
             <IconPlus width={20} height={20} /> Add product
           </button>
         </PageHeader>
@@ -169,7 +171,7 @@ function ProductModal({ product, categories, onClose, onSave }) {
   const [form, setForm] = useState(product)
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
   return (
-    <Modal title={product.id ? 'Edit product' : 'New product'} onClose={onClose}>
+    <Modal title={product.id ? 'Edit product' : 'New product'} onClose={onClose} width={product.id ? 560 : 480}>
       <label className="block">
         <span className="text-muted text-sm">Name</span>
         <input className="input mt-1.5" value={form.name} autoFocus onChange={(e) => set('name', e.target.value)} />
@@ -184,21 +186,136 @@ function ProductModal({ product, categories, onClose, onSave }) {
           <input className="input mt-1.5 tnum" type="number" inputMode="numeric" value={form.stock ?? 0} onChange={(e) => set('stock', e.target.value)} />
         </label>
       </div>
-      <label className="block">
-        <span className="text-muted text-sm">Category</span>
-        <select className="input mt-1.5" value={form.category_id} onChange={(e) => set('category_id', e.target.value)}>
-          {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-      </label>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="block">
+          <span className="text-muted text-sm">Category</span>
+          <select className="input mt-1.5" value={form.category_id} onChange={(e) => set('category_id', e.target.value)}>
+            {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </label>
+        <label className="block">
+          <span className="text-muted text-sm">Barcode</span>
+          <input className="input mt-1.5 tnum" placeholder="scan or type" value={form.barcode || ''} onChange={(e) => set('barcode', e.target.value)} />
+        </label>
+      </div>
       <label className="flex items-center gap-3">
         <input type="checkbox" className="w-6 h-6 accent-[#EC9A45]" checked={!!form.active} onChange={(e) => set('active', e.target.checked ? 1 : 0)} />
         <span>Active (shown on order screen)</span>
       </label>
+
+      {product.id ? (
+        <ModifierEditor productId={product.id} />
+      ) : (
+        <p className="text-muted text-xs">Save the product first to add size/extra options.</p>
+      )}
+
       <div className="flex gap-3 pt-1">
         <button className="btn-ghost flex-1" onClick={onClose}>Cancel</button>
         <button className="btn-accent flex-1" disabled={!form.name.trim()} onClick={() => onSave(form)}>Save</button>
       </div>
     </Modal>
+  )
+}
+
+function ModifierEditor({ productId }) {
+  const { confirm } = useDialog()
+  const [groups, setGroups] = useState([])
+  const [adding, setAdding] = useState(false)
+  const [gName, setGName] = useState('')
+  const [gRequired, setGRequired] = useState(false)
+  const [gMulti, setGMulti] = useState(false)
+
+  const load = () => api.products.modifiers(productId).then(setGroups)
+  useEffect(() => {
+    load()
+  }, [productId])
+
+  const addGroup = async () => {
+    if (!gName.trim()) return
+    await api.modifiers.createGroup({ product_id: productId, name: gName.trim(), required: gRequired, multi: gMulti })
+    setGName('')
+    setGRequired(false)
+    setGMulti(false)
+    setAdding(false)
+    load()
+  }
+  const removeGroup = async (id) => {
+    if (await confirm({ title: 'Delete group', message: 'Delete this option group?', confirmText: 'Delete', danger: true })) {
+      await api.modifiers.removeGroup(id)
+      load()
+    }
+  }
+  const addOption = async (groupId, name, priceStr) => {
+    await api.modifiers.createOption({ group_id: groupId, name, price_delta: unitsToMillis(priceStr) })
+    load()
+  }
+  const removeOption = async (id) => {
+    await api.modifiers.removeOption(id)
+    load()
+  }
+
+  return (
+    <div className="rounded-2xl border border-line bg-surface2/40 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="font-semibold">Options (sizes / extras)</span>
+        {!adding && <button className="text-ember text-sm font-semibold" onClick={() => setAdding(true)}>+ Add group</button>}
+      </div>
+
+      {groups.length === 0 && !adding && <p className="text-muted text-sm">No options. Add a group like “Size” or “Extras”.</p>}
+
+      {groups.map((g) => (
+        <div key={g.id} className="rounded-xl bg-surface border border-line p-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-semibold">
+              {g.name}
+              <span className="text-xs text-muted ml-2">{g.required ? 'required · ' : ''}{g.multi ? 'multiple' : 'pick one'}</span>
+            </span>
+            <button className="text-muted hover:text-berry" onClick={() => removeGroup(g.id)}><IconTrash width={16} height={16} /></button>
+          </div>
+          <div className="flex flex-wrap gap-2 mb-2">
+            {g.options.map((o) => (
+              <span key={o.id} className="chip bg-surface3 text-cream">
+                {o.name}{o.price_delta ? ` (+${money(o.price_delta)})` : ''}
+                <button className="ml-1 text-muted hover:text-berry" onClick={() => removeOption(o.id)}>✕</button>
+              </span>
+            ))}
+          </div>
+          <OptionAdder onAdd={(name, price) => addOption(g.id, name, price)} />
+        </div>
+      ))}
+
+      {adding && (
+        <div className="rounded-xl bg-surface border border-line p-3 space-y-2">
+          <input className="input py-2" placeholder="Group name (e.g. Size)" value={gName} autoFocus onChange={(e) => setGName(e.target.value)} />
+          <div className="flex gap-4 text-sm">
+            <label className="flex items-center gap-2"><input type="checkbox" className="w-5 h-5 accent-[#EC9A45]" checked={gRequired} onChange={(e) => setGRequired(e.target.checked)} /> Required</label>
+            <label className="flex items-center gap-2"><input type="checkbox" className="w-5 h-5 accent-[#EC9A45]" checked={gMulti} onChange={(e) => setGMulti(e.target.checked)} /> Allow multiple</label>
+          </div>
+          <div className="flex gap-2">
+            <button className="btn-ghost flex-1 py-2" onClick={() => setAdding(false)}>Cancel</button>
+            <button className="btn-accent flex-1 py-2" disabled={!gName.trim()} onClick={addGroup}>Add group</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function OptionAdder({ onAdd }) {
+  const [name, setName] = useState('')
+  const [price, setPrice] = useState('')
+  const submit = () => {
+    if (!name.trim()) return
+    onAdd(name.trim(), price)
+    setName('')
+    setPrice('')
+  }
+  return (
+    <div className="flex gap-2">
+      <input className="input py-2 flex-1" placeholder="Option name" value={name} onChange={(e) => setName(e.target.value)} />
+      <input className="input py-2 w-28 tnum" placeholder="+ price" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} />
+      <button className="btn-ghost py-2 px-4" disabled={!name.trim()} onClick={submit}>Add</button>
+    </div>
   )
 }
 

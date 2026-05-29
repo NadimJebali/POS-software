@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import { money, unitsToMillis, currencyDecimals } from '../lib/settings'
 import NumberPad from '../components/NumberPad'
 import Modal from '../components/Modal'
+import { useDialog } from '../components/Dialog'
 import { IconBack, IconPrint, IconTrash } from '../components/icons'
 
 const QUICK_UNITS = [1, 5, 10, 20, 50]
@@ -12,6 +13,7 @@ const DISCOUNTS = [0, 5, 10, 15]
 export default function Checkout() {
   const { orderId } = useParams()
   const navigate = useNavigate()
+  const { alert } = useDialog()
 
   const [order, setOrder] = useState(null)
   const [method, setMethod] = useState('cash')
@@ -65,7 +67,7 @@ export default function Checkout() {
       const result = await api.orders.complete(order.id)
       setPaid(result)
     } catch (e) {
-      alert(e.message)
+      alert({ title: 'Cannot complete sale', message: e.message })
     } finally {
       setBusy(false)
     }
@@ -75,7 +77,7 @@ export default function Checkout() {
     try {
       await api.receipt.print(paid.id)
     } catch (e) {
-      alert('Print failed: ' + e.message)
+      alert({ title: 'Print failed', message: e.message })
     }
   }
 
@@ -129,6 +131,7 @@ export default function Checkout() {
               <span className="text-cream">
                 <span className="text-muted tnum mr-2">{it.qty}×</span>
                 {it.name}
+                {it.modifiers && <span className="block text-sm text-ember ml-7">{it.modifiers}</span>}
               </span>
               <span className="font-semibold tnum">{money(it.unit_price * it.qty)}</span>
             </div>

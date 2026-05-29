@@ -3,6 +3,7 @@ out/
 release/
 dist/
 *.log
+*-log.txt
 .DS_Store
 *.db
 *.db-wal

@@ -4,6 +4,7 @@ import { money } from '../lib/settings'
 import { useAuth } from '../lib/auth'
 import PageHeader from '../components/PageHeader'
 import Modal from '../components/Modal'
+import { useDialog } from '../components/Dialog'
 import { IconPrint, IconEdit, IconTrash } from '../components/icons'
 
 const todayStr = () => {
@@ -13,6 +14,7 @@ const todayStr = () => {
 
 export default function History() {
   const { isAdmin } = useAuth()
+  const { confirm, alert } = useDialog()
   const [date, setDate] = useState(todayStr())
   const [all, setAll] = useState(false)
   const [orders, setOrders] = useState([])
@@ -27,13 +29,20 @@ export default function History() {
   const openDetail = (id) => api.orders.get(id).then(setDetail)
 
   const cancelOrder = async (id) => {
-    if (!confirm('Cancel this order? It will be removed from history and its stock restored.')) return
+    const ok = await confirm({
+      title: 'Cancel order',
+      message: 'Cancel this order? It will be removed from history and its stock restored.',
+      confirmText: 'Cancel order',
+      cancelText: 'Keep',
+      danger: true
+    })
+    if (!ok) return
     try {
       await api.orders.cancelPaid(id)
       setDetail(null)
       load()
     } catch (e) {
-      alert(e.message)
+      alert({ title: 'Error', message: e.message })
     }
   }
 
@@ -43,7 +52,7 @@ export default function History() {
       setDetail(updated)
       load()
     } catch (e) {
-      alert(e.message)
+      alert({ title: 'Error', message: e.message })
     }
   }
 
@@ -54,7 +63,7 @@ export default function History() {
     try {
       await api.receipt.print(id)
     } catch (e) {
-      alert('Print failed: ' + e.message)
+      alert({ title: 'Print failed', message: e.message })
     } finally {
       setPrinting(null)
     }
@@ -84,6 +93,7 @@ export default function History() {
             <tr>
               <th className="px-5 py-4 font-medium">Order</th>
               <th className="px-5 py-4 font-medium">Table</th>
+              <th className="px-5 py-4 font-medium">Server</th>
               <th className="px-5 py-4 font-medium">Time</th>
               <th className="px-5 py-4 font-medium text-center">Items</th>
               <th className="px-5 py-4 font-medium text-right">Discount</th>
@@ -101,6 +111,7 @@ export default function History() {
               >
                 <td className="px-5 py-3.5 font-semibold tnum">#{o.id}</td>
                 <td className="px-5 py-3.5">{o.table_label || '—'}</td>
+                <td className="px-5 py-3.5">{o.user_name || '—'}</td>
                 <td className="px-5 py-3.5 text-muted tnum">{new Date(o.paid_at + 'Z').toLocaleString()}</td>
                 <td className="px-5 py-3.5 text-center tnum">{o.item_count}</td>
                 <td className="px-5 py-3.5 text-right tnum text-berry">{o.discount > 0 ? '- ' + money(o.discount) : '—'}</td>
@@ -121,7 +132,7 @@ export default function History() {
               </tr>
             ))}
             {orders.length === 0 && (
-              <tr><td colSpan={8} className="px-5 py-12 text-center text-muted">No orders for this period.</td></tr>
+              <tr><td colSpan={9} className="px-5 py-12 text-center text-muted">No orders for this period.</td></tr>
             )}
           </tbody>
         </table>
@@ -179,6 +190,11 @@ function OrderDetail({ order, isAdmin, onClose, onReprint, printing, onCancel, o
       onClose={onClose}
       width={480}
     >
+      <div className="flex items-center gap-2 mb-3">
+        <span className="chip bg-surface3 text-muted">Served by</span>
+        <span className="font-semibold text-cream">{order.user_name || 'Unknown'}</span>
+      </div>
+
       <div className="max-h-[42vh] overflow-y-auto -mx-1 px-1 divide-y divide-line/60">
         {order.items.map((it) => (
           <div key={it.id} className="flex items-center justify-between py-2.5 gap-3">
@@ -186,6 +202,7 @@ function OrderDetail({ order, isAdmin, onClose, onReprint, printing, onCancel, o
               {!edit && <span className="text-muted tnum mr-2">{it.qty}×</span>}
               <span className={q(it) === 0 ? 'line-through text-muted' : ''}>{it.name}</span>
               <span className="text-muted text-sm tnum ml-2">@ {money(it.unit_price)}</span>
+              {it.modifiers && <span className="block text-xs text-ember">{it.modifiers}</span>}
             </span>
             {edit ? (
               <span className="flex items-center gap-1.5">

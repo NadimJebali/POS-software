@@ -8,6 +8,7 @@ const ADMIN_CHANNELS = new Set([
   'users:list', 'users:create', 'users:update', 'users:remove',
   'categories:create', 'categories:update', 'categories:remove',
   'products:create', 'products:update', 'products:remove',
+  'modgroups:create', 'modgroups:remove', 'modoptions:create', 'modoptions:remove',
   'tables:create', 'tables:update', 'tables:remove',
   'orders:cancelPaid', 'orders:updatePaid'
 ])
@@ -53,6 +54,23 @@ export function registerIpc(db) {
   }
 
   const handlers = {
+    // ---------------- First-run setup ----------------
+    // The app needs setup until at least one admin exists.
+    'auth:needsSetup': () => db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'admin'").get().n === 0,
+
+    // Create the first administrator and sign them in. Refuses once an admin exists.
+    'auth:setup': ({ username, name, pin }) => {
+      const admins = db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'admin'").get().n
+      if (admins > 0) throw new Error('Setup has already been completed')
+      const uname = String(username || 'admin').trim() || 'admin'
+      if (!pin || String(pin).length < 4) throw new Error('PIN must be at least 4 digits')
+      const info = db
+        .prepare("INSERT INTO users (username, name, pin_hash, role) VALUES (?, ?, ?, 'admin')")
+        .run(uname, name || 'Administrator', hashPin(pin))
+      currentUser = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid)
+      return publicUser(currentUser)
+    },
+
     // ---------------- Auth ----------------
     'auth:login': ({ username, pin }) => {
       const user = db.prepare('SELECT * FROM users WHERE username = ? AND active = 1').get(String(username || '').trim())
@@ -154,33 +172,80 @@ export function registerIpc(db) {
     'products:list': () =>
       db
         .prepare(
-          `SELECT p.*, c.name AS category_name, c.color AS category_color
+          `SELECT p.*, c.name AS category_name, c.color AS category_color,
+                  (SELECT COUNT(*) FROM modifier_groups WHERE product_id = p.id) AS modifier_count
            FROM products p LEFT JOIN categories c ON c.id = p.category_id
            ORDER BY c.sort_order, p.name`
         )
         .all(),
 
     'products:byCategory': ({ categoryId }) =>
-      db.prepare('SELECT * FROM products WHERE category_id = ? AND active = 1 ORDER BY name').all(categoryId),
+      db
+        .prepare(
+          `SELECT p.*, (SELECT COUNT(*) FROM modifier_groups WHERE product_id = p.id) AS modifier_count
+           FROM products p WHERE p.category_id = ? AND p.active = 1 ORDER BY p.name`
+        )
+        .all(categoryId),
 
-    'products:create': ({ category_id, name, price, color, stock }) => {
+    // Barcode lookup for scanning (matches active products).
+    'products:byBarcode': ({ barcode }) => {
+      const code = String(barcode || '').trim()
+      if (!code) return null
+      return db
+        .prepare(
+          `SELECT p.*, (SELECT COUNT(*) FROM modifier_groups WHERE product_id = p.id) AS modifier_count
+           FROM products p WHERE p.barcode = ? AND p.active = 1 LIMIT 1`
+        )
+        .get(code)
+    },
+
+    'products:create': ({ category_id, name, price, color, stock, barcode }) => {
       const info = db
-        .prepare('INSERT INTO products (category_id, name, price, color, stock) VALUES (?, ?, ?, ?, ?)')
-        .run(category_id, name, price, color || null, Math.round(stock || 0))
+        .prepare('INSERT INTO products (category_id, name, price, color, stock, barcode) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(category_id, name, price, color || null, Math.round(stock || 0), barcode || null)
       return db.prepare('SELECT * FROM products WHERE id = ?').get(info.lastInsertRowid)
     },
 
-    'products:update': ({ id, category_id, name, price, color, active, stock }) => {
-      db.prepare('UPDATE products SET category_id = ?, name = ?, price = ?, color = ?, active = ?, stock = ? WHERE id = ?').run(
+    'products:update': ({ id, category_id, name, price, color, active, stock, barcode }) => {
+      db.prepare('UPDATE products SET category_id = ?, name = ?, price = ?, color = ?, active = ?, stock = ?, barcode = ? WHERE id = ?').run(
         category_id,
         name,
         price,
         color || null,
         active ? 1 : 0,
         Math.round(stock || 0),
+        barcode || null,
         id
       )
       return db.prepare('SELECT * FROM products WHERE id = ?').get(id)
+    },
+
+    // ---- Modifiers ----
+    'products:modifiers': ({ productId }) => {
+      const groups = db.prepare('SELECT * FROM modifier_groups WHERE product_id = ? ORDER BY sort_order, id').all(productId)
+      const optStmt = db.prepare('SELECT * FROM modifier_options WHERE group_id = ? ORDER BY sort_order, id')
+      return groups.map((g) => ({ ...g, options: optStmt.all(g.id) }))
+    },
+
+    'modgroups:create': ({ product_id, name, required, multi }) => {
+      const info = db
+        .prepare('INSERT INTO modifier_groups (product_id, name, required, multi) VALUES (?, ?, ?, ?)')
+        .run(product_id, name, required ? 1 : 0, multi ? 1 : 0)
+      return db.prepare('SELECT * FROM modifier_groups WHERE id = ?').get(info.lastInsertRowid)
+    },
+    'modgroups:remove': ({ id }) => {
+      db.prepare('DELETE FROM modifier_groups WHERE id = ?').run(id)
+      return { ok: true }
+    },
+    'modoptions:create': ({ group_id, name, price_delta }) => {
+      const info = db
+        .prepare('INSERT INTO modifier_options (group_id, name, price_delta) VALUES (?, ?, ?)')
+        .run(group_id, name, Math.round(price_delta || 0))
+      return db.prepare('SELECT * FROM modifier_options WHERE id = ?').get(info.lastInsertRowid)
+    },
+    'modoptions:remove': ({ id }) => {
+      db.prepare('DELETE FROM modifier_options WHERE id = ?').run(id)
+      return { ok: true }
     },
 
     'products:remove': ({ id }) => {
@@ -222,9 +287,15 @@ export function registerIpc(db) {
         .get(tableId)
       if (!order) {
         const table = db.prepare('SELECT * FROM tables WHERE id = ?').get(tableId)
+        // Attribute the order to whoever is signed in (the server taking it).
         const info = db
-          .prepare("INSERT INTO orders (table_id, table_label, status) VALUES (?, ?, 'open')")
-          .run(tableId, table ? table.label : null)
+          .prepare("INSERT INTO orders (table_id, table_label, status, user_id, user_name) VALUES (?, ?, 'open', ?, ?)")
+          .run(
+            tableId,
+            table ? table.label : null,
+            currentUser ? currentUser.id : null,
+            currentUser ? currentUser.name || currentUser.username : null
+          )
         db.prepare("UPDATE tables SET status = 'occupied' WHERE id = ?").run(tableId)
         order = db.prepare('SELECT * FROM orders WHERE id = ?').get(info.lastInsertRowid)
       }
@@ -247,6 +318,28 @@ export function registerIpc(db) {
           product.price
         )
       }
+      recalcOrder(orderId)
+      return getOrderWithItems(orderId)
+    },
+
+    // Add a product with chosen modifier options. Always a new line (never merged),
+    // priced as base + sum of option deltas, with a human-readable modifier label.
+    'orders:addItemWithMods': ({ orderId, productId, optionIds }) => {
+      const product = db.prepare('SELECT * FROM products WHERE id = ?').get(productId)
+      if (!product) throw new Error('Product not found')
+      let delta = 0
+      let label = ''
+      const ids = (optionIds || []).filter((x) => x != null)
+      if (ids.length) {
+        const opts = db
+          .prepare(`SELECT * FROM modifier_options WHERE id IN (${ids.map(() => '?').join(',')})`)
+          .all(...ids)
+        delta = opts.reduce((s, o) => s + o.price_delta, 0)
+        label = opts.map((o) => o.name).join(', ')
+      }
+      db.prepare(
+        'INSERT INTO order_items (order_id, product_id, name, unit_price, qty, modifiers) VALUES (?, ?, ?, ?, 1, ?)'
+      ).run(orderId, productId, product.name, product.price + delta, label || null)
       recalcOrder(orderId)
       return getOrderWithItems(orderId)
     },
@@ -380,7 +473,7 @@ export function registerIpc(db) {
       const params = date ? [date] : []
       return db
         .prepare(
-          `SELECT o.id, o.table_label, o.subtotal, o.discount, o.total, o.cash_received, o.change_due, o.paid_at,
+          `SELECT o.id, o.table_label, o.subtotal, o.discount, o.total, o.cash_received, o.change_due, o.paid_at, o.user_name,
                   (SELECT COALESCE(SUM(qty),0) FROM order_items WHERE order_id = o.id) AS item_count
            FROM orders o WHERE o.status = 'paid' ${where}
            ORDER BY o.paid_at DESC LIMIT 200`
@@ -419,6 +512,18 @@ export function registerIpc(db) {
            FROM order_items oi JOIN orders o ON o.id = oi.order_id
            WHERE o.status = 'paid' AND ${where}
            GROUP BY oi.name ORDER BY revenue DESC LIMIT 10`
+        )
+        .all()
+    },
+
+    // Sales grouped by the user who served each order, for the given period.
+    'analytics:byServer': ({ period }) => {
+      const where = periodWhere(period)
+      return db
+        .prepare(
+          `SELECT COALESCE(o.user_name, 'Unknown') AS name, COUNT(*) AS orders, COALESCE(SUM(o.total),0) AS revenue
+           FROM orders o WHERE o.status = 'paid' AND ${where}
+           GROUP BY COALESCE(o.user_name, 'Unknown') ORDER BY revenue DESC`
         )
         .all()
     },

@@ -20,7 +20,10 @@ function receiptHtml(order, s) {
 
   const rows = order.items
     .map(
-      (it) => `<tr><td class="q">${it.qty}×</td><td class="n">${esc(it.name)}</td><td class="p">${money(it.unit_price * it.qty, s)}</td></tr>`
+      (it) =>
+        `<tr><td class="q">${it.qty}×</td><td class="n">${esc(it.name)}${
+          it.modifiers ? `<div class="mod">${esc(it.modifiers)}</div>` : ''
+        }</td><td class="p">${money(it.unit_price * it.qty, s)}</td></tr>`
     )
     .join('')
 
@@ -40,6 +43,7 @@ function receiptHtml(order, s) {
     td { padding:2px 0; vertical-align:top; }
     td.q { width:30px; }
     td.p { text-align:right; white-space:nowrap; padding-left:6px; }
+    .mod { font-size:10px; color:#444; padding-left:4px; }
     .line { display:flex; justify-content:space-between; font-size:12px; padding:1px 0; }
     .tot { font-size:15px; font-weight:bold; }
     .foot { text-align:center; font-size:11px; margin-top:10px; line-height:1.5; }

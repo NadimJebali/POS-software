@@ -2,7 +2,6 @@ import initSqlJs from 'sql.js'
 import { app } from 'electron'
 import { join } from 'path'
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'fs'
-import { hashPin } from './auth-util'
 
 /**
  * Money is stored everywhere as INTEGER millimes (1 TND = 1000 millimes)
@@ -197,20 +196,44 @@ function migrate(db) {
       qty        INTEGER NOT NULL DEFAULT 1
     );
 
+    CREATE TABLE IF NOT EXISTS modifier_groups (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      name       TEXT NOT NULL,
+      required   INTEGER NOT NULL DEFAULT 0,
+      multi      INTEGER NOT NULL DEFAULT 0,
+      sort_order INTEGER DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS modifier_options (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      group_id    INTEGER NOT NULL REFERENCES modifier_groups(id) ON DELETE CASCADE,
+      name        TEXT NOT NULL,
+      price_delta INTEGER NOT NULL DEFAULT 0,
+      sort_order  INTEGER DEFAULT 0
+    );
+
     CREATE INDEX IF NOT EXISTS idx_products_cat   ON products(category_id);
     CREATE INDEX IF NOT EXISTS idx_orders_status  ON orders(status);
     CREATE INDEX IF NOT EXISTS idx_orders_paid    ON orders(paid_at);
     CREATE INDEX IF NOT EXISTS idx_items_order     ON order_items(order_id);
     CREATE INDEX IF NOT EXISTS idx_payments_order  ON payments(order_id);
+    CREATE INDEX IF NOT EXISTS idx_modgroups_prod  ON modifier_groups(product_id);
+    CREATE INDEX IF NOT EXISTS idx_modoptions_grp  ON modifier_options(group_id);
   `)
 
   // Additive column migrations for databases created before these existed.
   addColumnIfMissing(db, 'orders', 'subtotal', 'INTEGER NOT NULL DEFAULT 0')
   addColumnIfMissing(db, 'orders', 'discount', 'INTEGER NOT NULL DEFAULT 0')
+  addColumnIfMissing(db, 'orders', 'user_id', 'INTEGER')
+  addColumnIfMissing(db, 'orders', 'user_name', 'TEXT')
   addColumnIfMissing(db, 'products', 'stock', 'INTEGER NOT NULL DEFAULT 0')
+  addColumnIfMissing(db, 'products', 'barcode', 'TEXT')
+  addColumnIfMissing(db, 'order_items', 'modifiers', 'TEXT')
 
   seedSettings(db)
-  seedUsers(db)
+  // No default user is seeded — the first admin is created in the app's
+  // first-run setup screen (see auth:setup in ipc.js).
 }
 
 function addColumnIfMissing(db, table, column, definition) {
@@ -232,21 +255,13 @@ const DEFAULT_SETTINGS = {
   print_silent: '0',
   printer_name: '',
   paper_width: '80', // mm: '58' | '80'
-  low_stock_threshold: '5' // warn when product stock is at or below this
+  low_stock_threshold: '5', // warn when product stock is at or below this
+  auto_lock_minutes: '0' // sign out after this many idle minutes (0 = never)
 }
 
 function seedSettings(db) {
   const insert = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)')
   for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) insert.run(key, value)
-}
-
-// Create a default admin (and a sample cashier) on a fresh database.
-function seedUsers(db) {
-  const count = db.prepare('SELECT COUNT(*) AS n FROM users').get().n
-  if (count > 0) return
-  const insert = db.prepare('INSERT INTO users (username, name, pin_hash, role) VALUES (?, ?, ?, ?)')
-  insert.run('admin', 'Administrator', hashPin('1234'), 'admin')
-  insert.run('cashier', 'Cashier', hashPin('1111'), 'user')
 }
 
 function seedIfEmpty(db) {
