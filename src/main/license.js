@@ -64,7 +64,9 @@ function paths() {
 }
 
 // ---- license verification ----
-function verify(licenseString, machineId) {
+// `nowMs` is the monotonic high-water-mark time (not raw Date.now), so a license
+// with an expiry can't be revived by winding the system clock backwards.
+function verify(licenseString, machineId, nowMs) {
   try {
     const [pB64, sB64] = String(licenseString).trim().split('.')
     if (!pB64 || !sB64) return { valid: false, reason: 'License is malformed' }
@@ -73,7 +75,7 @@ function verify(licenseString, machineId) {
     }
     const payload = JSON.parse(Buffer.from(pB64, 'base64').toString('utf8'))
     if (payload.machineId !== machineId) return { valid: false, reason: 'This license belongs to a different machine' }
-    if (payload.exp && Date.now() > payload.exp) return { valid: false, reason: 'This license has expired' }
+    if (payload.exp && nowMs > payload.exp) return { valid: false, reason: 'This license has expired' }
     return { valid: true, payload }
   } catch {
     return { valid: false, reason: 'License could not be read' }
@@ -146,12 +148,42 @@ function writeStores(data, machineId) {
   }
 }
 
+// Reads the tamper-proof meta (file + registry), advances the "highest time ever
+// seen" mark to at least real `now`, and persists it. Returns the monotonic time to
+// reason about, the trial start, and whether the stored meta was tampered with.
+// The mark only ever moves forward, so winding the clock back can't gain time —
+// for either the trial countdown or a license's expiry date.
+function advanceClock(machineId, now) {
+  const file = readFileStore(machineId)
+  const reg = readRegStore(machineId)
+  const stores = [file.data, reg.data].filter(Boolean)
+
+  if (stores.length) {
+    // Pessimistic union across both stores: earliest start, latest time ever seen.
+    const firstRun = Math.min(...stores.map((s) => s.firstRun))
+    const lastSeen = Math.max(now, ...stores.map((s) => s.lastSeen || s.firstRun))
+    writeStores({ firstRun, lastSeen }, machineId)
+    return { effectiveNow: lastSeen, firstRun, tampered: false }
+  }
+  if (file.existed || reg.existed) {
+    // Present but failed its signature (hand-edited / corrupted) — don't rewrite a
+    // fresh one (that would reset the trial); signal tampering to the caller.
+    return { effectiveNow: now, firstRun: now, tampered: true }
+  }
+  // Genuine first run on this machine.
+  writeStores({ firstRun: now, lastSeen: now }, machineId)
+  return { effectiveNow: now, firstRun: now, tampered: false }
+}
+
 export function getStatus() {
   const machineId = getMachineId()
+  const clock = advanceClock(machineId, Date.now())
   const { lic } = paths()
 
   if (existsSync(lic)) {
-    const res = verify(readFileSync(lic, 'utf8'), machineId)
+    // Check the licence against the monotonic clock so an expiring licence can't be
+    // revived by rolling the system time back.
+    const res = verify(readFileSync(lic, 'utf8'), machineId, clock.effectiveNow)
     if (res.valid) {
       return { state: 'licensed', machineId, name: res.payload.name || null, exp: res.payload.exp || null }
     }
@@ -160,40 +192,23 @@ export function getStatus() {
   }
 
   // ---- trial window ----
-  const now = Date.now()
-  const file = readFileStore(machineId)
-  const reg = readRegStore(machineId)
-  const stores = [file.data, reg.data].filter(Boolean)
-
-  let data
-  if (stores.length) {
-    // Pessimistic union: keep the earliest start and the latest time ever seen,
-    // and never let "now" run backward (defeats clock-rollback for free days).
-    const firstRun = Math.min(...stores.map((s) => s.firstRun))
-    const lastSeen = Math.max(now, ...stores.map((s) => s.lastSeen || s.firstRun))
-    data = { firstRun, lastSeen }
-  } else if (file.existed || reg.existed) {
-    // A store was present but failed its signature (hand-edited / corrupted), and
-    // no valid copy survives anywhere → fail closed rather than granting a fresh trial.
+  if (clock.tampered) {
+    // No valid trial record survives anywhere → fail closed rather than granting a fresh trial.
     return { state: 'unlicensed', machineId, reason: 'Trial data was modified' }
-  } else {
-    // Genuine first run on this machine.
-    data = { firstRun: now, lastSeen: now }
   }
-
-  writeStores(data, machineId)
-
   // Count down against the monotonic clock, so rolling the system time back only
   // ever freezes the trial — it can never extend it.
-  const effectiveNow = Math.max(now, data.lastSeen)
-  const daysLeft = Math.ceil((data.firstRun + TRIAL_DAYS * 86400000 - effectiveNow) / 86400000)
+  const daysLeft = Math.ceil((clock.firstRun + TRIAL_DAYS * 86400000 - clock.effectiveNow) / 86400000)
   if (daysLeft > 0) return { state: 'trial', machineId, daysLeft }
   return { state: 'unlicensed', machineId }
 }
 
 export function activate(licenseString) {
   const machineId = getMachineId()
-  const res = verify(licenseString, machineId)
+  // Validate against the monotonic clock too, so an already-expired licence can't be
+  // activated by winding the clock back first.
+  const { effectiveNow } = advanceClock(machineId, Date.now())
+  const res = verify(licenseString, machineId, effectiveNow)
   if (!res.valid) throw new Error(res.reason)
   writeFileSync(paths().lic, String(licenseString).trim())
   return { state: 'licensed', machineId, name: res.payload.name || null, exp: res.payload.exp || null }

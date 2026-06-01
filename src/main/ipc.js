@@ -4,6 +4,16 @@ import { hashPin, verifyPin } from './auth-util'
 import { getStatus as licenseStatus, activate as licenseActivate } from './license'
 import { exportDatabase, importDatabase } from './backup'
 
+// Channels callable without being signed in (licensing + the login flow itself).
+// Everything else requires an authenticated session — enforced in the dispatcher.
+const PUBLIC_CHANNELS = new Set([
+  'license:status', 'license:activate',
+  'auth:needsSetup', 'auth:setup', 'auth:login', 'auth:logout', 'auth:current', 'auth:users',
+  // The login/setup/activate screens render before sign-in and need shop name,
+  // currency and logo. Settings hold no secrets; writing them stays admin-only.
+  'settings:get'
+])
+
 // Channels only an authenticated admin may call (enforced in the dispatcher below).
 const ADMIN_CHANNELS = new Set([
   'settings:set',
@@ -26,6 +36,11 @@ export function registerIpc(db) {
   // In-memory session for this terminal (cleared on logout / app restart).
   let currentUser = null
   const publicUser = (u) => (u ? { id: u.id, username: u.username, name: u.name, role: u.role } : null)
+
+  // Failed-login throttle, keyed by username. After 5 wrong PINs the account locks
+  // for an escalating cooldown (30s, then doubling, capped at 15 min) to make a
+  // 4-digit PIN impractical to brute-force.
+  const loginThrottle = new Map()
   const isAdmin = () => currentUser && currentUser.role === 'admin'
 
   // Backup/restore is a licensed-only feature — a trial or unlicensed copy can't use it.
@@ -114,8 +129,23 @@ export function registerIpc(db) {
 
     // ---------------- Auth ----------------
     'auth:login': ({ username, pin }) => {
-      const user = db.prepare('SELECT * FROM users WHERE username = ? AND active = 1').get(String(username || '').trim())
-      if (!user || !verifyPin(pin, user.pin_hash)) throw new Error('Invalid username or PIN')
+      const uname = String(username || '').trim()
+      const now = Date.now()
+      const t = loginThrottle.get(uname) || { fails: 0, lockedUntil: 0 }
+      if (t.lockedUntil > now) {
+        throw new Error(`Too many attempts. Try again in ${Math.ceil((t.lockedUntil - now) / 1000)}s`)
+      }
+      const user = db.prepare('SELECT * FROM users WHERE username = ? AND active = 1').get(uname)
+      if (!user || !verifyPin(pin, user.pin_hash)) {
+        t.fails++
+        if (t.fails % 5 === 0) {
+          const blocks = t.fails / 5
+          t.lockedUntil = now + Math.min(30000 * 2 ** (blocks - 1), 15 * 60000)
+        }
+        loginThrottle.set(uname, t)
+        throw new Error('Invalid username or PIN')
+      }
+      loginThrottle.delete(uname) // success clears the counter
       currentUser = user
       return publicUser(user)
     },
@@ -630,6 +660,11 @@ export function registerIpc(db) {
 
   for (const [channel, fn] of Object.entries(handlers)) {
     ipcMain.handle(channel, async (_event, payload) => {
+      // The renderer gates the UI, but the main process is the real trust boundary:
+      // every non-public channel requires a signed-in session, admin ones an admin.
+      if (!PUBLIC_CHANNELS.has(channel) && !currentUser) {
+        throw new Error('Please sign in first')
+      }
       if (ADMIN_CHANNELS.has(channel) && (!currentUser || currentUser.role !== 'admin')) {
         throw new Error('Administrator access required')
       }

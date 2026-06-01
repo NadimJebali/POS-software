@@ -14,12 +14,35 @@ export default function Login() {
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [lockUntil, setLockUntil] = useState(0) // ms timestamp; 0 = not locked
+  const [remaining, setRemaining] = useState(0) // seconds left on the lockout
 
   useEffect(() => {
     api.auth.users().then(setUsers).catch(() => setUsers([]))
   }, [])
 
+  // Live countdown while locked out; clears itself when it reaches zero.
+  useEffect(() => {
+    if (!lockUntil) return
+    const tick = () => {
+      const secs = Math.ceil((lockUntil - Date.now()) / 1000)
+      if (secs <= 0) {
+        setLockUntil(0)
+        setRemaining(0)
+        setError('')
+      } else {
+        setRemaining(secs)
+      }
+    }
+    tick()
+    const id = setInterval(tick, 500)
+    return () => clearInterval(id)
+  }, [lockUntil])
+
+  const locked = lockUntil > 0 && remaining > 0
+
   const press = (k) => {
+    if (locked) return
     setError('')
     if (k === '⌫') return setPin((p) => p.slice(0, -1))
     if (k === '' || pin.length >= 8) return
@@ -27,12 +50,16 @@ export default function Login() {
   }
 
   const submit = async () => {
-    if (pin.length < 4 || !selected) return
+    if (pin.length < 4 || !selected || locked) return
     setBusy(true)
     try {
       await login(selected.username, pin)
     } catch (e) {
-      setError(e.message || 'Login failed')
+      const msg = e.message || 'Login failed'
+      // Server returns "Too many attempts. Try again in Ns" — start the lockout timer.
+      const m = /too many attempts.*?(\d+)s/i.exec(msg)
+      if (m) setLockUntil(Date.now() + parseInt(m[1], 10) * 1000)
+      setError(msg)
       setPin('')
     } finally {
       setBusy(false)
@@ -63,12 +90,13 @@ export default function Login() {
             {users.map((u) => (
               <button
                 key={u.id}
+                disabled={locked}
                 onClick={() => {
                   setSelected(u)
                   setPin('')
                   setError('')
                 }}
-                className={`p-4 rounded-2xl border text-left transition ${
+                className={`p-4 rounded-2xl border text-left transition disabled:opacity-50 disabled:cursor-not-allowed ${
                   selected?.id === u.id ? 'border-ember bg-ember/10 shadow-glow' : 'border-line bg-surface2 hover:bg-surface3'
                 }`}
               >
@@ -87,7 +115,7 @@ export default function Login() {
           {selected ? (
             <>
               <div className="flex items-center gap-2 mb-3">
-                <button className="btn-ghost px-3 py-2" onClick={() => setSelected(null)}>
+                <button className="btn-ghost px-3 py-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled={locked} onClick={() => setSelected(null)}>
                   <IconBack width={18} height={18} />
                 </button>
                 <span className="text-muted">
@@ -104,25 +132,34 @@ export default function Login() {
                 ))}
               </div>
 
-              {error && <p className="text-berry text-center text-sm mb-3">{error}</p>}
+              {locked ? (
+                <div className="mb-3 rounded-xl bg-berry/15 border border-berry/40 px-4 py-2.5 text-center">
+                  <div className="text-berry font-semibold">Too many attempts</div>
+                  <div className="text-cream text-sm tnum">Locked — try again in {remaining}s</div>
+                </div>
+              ) : (
+                error && <p className="text-berry text-center text-sm mb-3">{error}</p>
+              )}
 
               <div className="grid grid-cols-3 gap-2.5">
                 {pad.map((k, i) => (
                   <button
                     key={i}
-                    disabled={k === ''}
+                    disabled={k === '' || locked}
                     onClick={() => press(k)}
-                    className={`h-[64px] rounded-2xl text-2xl font-display font-semibold transition active:scale-95 ${
-                      k === '' ? 'opacity-0 pointer-events-none' : 'bg-surface2 border border-line hover:bg-surface3'
-                    }`}
+                    className={
+                      k === ''
+                        ? 'h-[64px] opacity-0 pointer-events-none'
+                        : 'h-[64px] rounded-2xl text-2xl font-display font-semibold transition active:scale-95 bg-surface2 border border-line hover:bg-surface3 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100'
+                    }
                   >
                     {k}
                   </button>
                 ))}
               </div>
 
-              <button className="btn-accent mt-4 text-xl py-4" disabled={pin.length < 4 || busy} onClick={submit}>
-                {busy ? 'Signing in…' : 'Sign in'}
+              <button className="btn-accent mt-4 text-xl py-4" disabled={pin.length < 4 || busy || locked} onClick={submit}>
+                {locked ? `Locked · ${remaining}s` : busy ? 'Signing in…' : 'Sign in'}
               </button>
             </>
           ) : (
