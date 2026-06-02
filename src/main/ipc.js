@@ -1,6 +1,6 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { printReceipt } from './receipt'
-import { hashPin, verifyPin } from './auth-util'
+import { hashPin, verifyPin, needsRehash } from './auth-util'
 import { getStatus as licenseStatus, activate as licenseActivate } from './license'
 import { exportDatabase, importDatabase } from './backup'
 
@@ -42,6 +42,16 @@ export function registerIpc(db) {
   // 4-digit PIN impractical to brute-force.
   const loginThrottle = new Map()
   const isAdmin = () => currentUser && currentUser.role === 'admin'
+
+  // Boundary validation: the renderer is untrusted, so coerce and bound numeric
+  // inputs here before they reach the DB. Returns a finite, rounded integer in
+  // [min, max] or throws a user-facing error.
+  const intIn = (value, { min = 0, max = Number.MAX_SAFE_INTEGER, name = 'value' } = {}) => {
+    const n = Math.round(Number(value))
+    if (!Number.isFinite(n)) throw new Error(`${name} must be a number`)
+    if (n < min || n > max) throw new Error(`${name} is out of range`)
+    return n
+  }
 
   // Backup/restore is a licensed-only feature — a trial or unlicensed copy can't use it.
   const requireLicensed = () => {
@@ -146,6 +156,15 @@ export function registerIpc(db) {
         throw new Error('Invalid username or PIN')
       }
       loginThrottle.delete(uname) // success clears the counter
+      // Opportunistically upgrade hashes written under an older (weaker) work factor,
+      // now that we have the plaintext PIN in hand from a valid sign-in.
+      if (needsRehash(user.pin_hash)) {
+        try {
+          db.prepare('UPDATE users SET pin_hash = ? WHERE id = ?').run(hashPin(pin), user.id)
+        } catch {
+          // Non-fatal: login still succeeds; we just retry the upgrade next time.
+        }
+      }
       currentUser = user
       return publicUser(user)
     },
@@ -271,9 +290,11 @@ export function registerIpc(db) {
     },
 
     'products:create': ({ category_id, name, price, color, stock, barcode, image }) => {
+      const safePrice = intIn(price, { name: 'Price' })
+      const safeStock = intIn(stock || 0, { name: 'Stock' })
       const info = db
         .prepare('INSERT INTO products (category_id, name, price, color, stock, barcode, image) VALUES (?, ?, ?, ?, ?, ?, ?)')
-        .run(category_id, name, price, color || null, Math.round(stock || 0), barcode || null, image || null)
+        .run(category_id, name, safePrice, color || null, safeStock, barcode || null, image || null)
       return db.prepare('SELECT * FROM products WHERE id = ?').get(info.lastInsertRowid)
     },
 
@@ -281,10 +302,10 @@ export function registerIpc(db) {
       db.prepare('UPDATE products SET category_id = ?, name = ?, price = ?, color = ?, active = ?, stock = ?, barcode = ?, image = ? WHERE id = ?').run(
         category_id,
         name,
-        price,
+        intIn(price, { name: 'Price' }),
         color || null,
         active ? 1 : 0,
-        Math.round(stock || 0),
+        intIn(stock || 0, { name: 'Stock' }),
         barcode || null,
         image || null,
         id
@@ -465,9 +486,11 @@ export function registerIpc(db) {
       const { subtotal } = db
         .prepare('SELECT COALESCE(SUM(unit_price * qty),0) AS subtotal FROM order_items WHERE order_id = ?')
         .get(orderId)
+      const amount = Number(value)
+      if (!Number.isFinite(amount) || amount < 0) throw new Error('Discount must be a positive number')
       let discount = 0
-      if (type === 'percent') discount = Math.round((subtotal * Number(value)) / 100)
-      else discount = Math.round(Number(value))
+      if (type === 'percent') discount = Math.round((subtotal * amount) / 100)
+      else discount = Math.round(amount)
       discount = Math.max(0, Math.min(discount, subtotal))
       db.prepare('UPDATE orders SET discount = ? WHERE id = ?').run(discount, orderId)
       recalcOrder(orderId)
@@ -484,7 +507,8 @@ export function registerIpc(db) {
 
     // ---- split / partial payments ----
     'orders:addPayment': ({ orderId, method, amount }) => {
-      db.prepare('INSERT INTO payments (order_id, method, amount) VALUES (?, ?, ?)').run(orderId, method || 'cash', Math.round(amount))
+      const safeAmount = intIn(amount, { min: 1, name: 'Payment amount' })
+      db.prepare('INSERT INTO payments (order_id, method, amount) VALUES (?, ?, ?)').run(orderId, method || 'cash', safeAmount)
       return getOrderWithItems(orderId)
     },
 
