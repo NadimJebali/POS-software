@@ -7,7 +7,7 @@ const CHANNELS = [
   'users:list', 'users:create', 'users:update', 'users:remove',
   'settings:get', 'settings:set', 'printers:list',
   'categories:list', 'categories:create', 'categories:update', 'categories:remove',
-  'products:list', 'products:byCategory', 'products:byBarcode', 'products:create', 'products:update', 'products:remove',
+  'products:list', 'products:byCategory', 'products:byBarcode', 'products:create', 'products:update', 'products:remove', 'products:stock',
   'products:modifiers', 'modgroups:create', 'modgroups:remove', 'modoptions:create', 'modoptions:remove',
   'tables:list', 'tables:create', 'tables:update', 'tables:remove',
   'orders:openForTable', 'orders:get', 'orders:addItem', 'orders:addItemWithMods', 'orders:setItemQty',

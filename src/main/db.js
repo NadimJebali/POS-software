@@ -237,6 +237,7 @@ function migrate(db) {
   addColumnIfMissing(db, 'orders', 'deleted_by', 'TEXT')
   addColumnIfMissing(db, 'products', 'stock', 'INTEGER NOT NULL DEFAULT 0')
   addColumnIfMissing(db, 'products', 'barcode', 'TEXT')
+  addColumnIfMissing(db, 'products', 'image', 'TEXT') // small resized data URL, or null
   addColumnIfMissing(db, 'order_items', 'modifiers', 'TEXT')
 
   seedSettings(db)

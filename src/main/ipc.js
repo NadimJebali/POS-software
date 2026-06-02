@@ -270,15 +270,15 @@ export function registerIpc(db) {
         .get(code)
     },
 
-    'products:create': ({ category_id, name, price, color, stock, barcode }) => {
+    'products:create': ({ category_id, name, price, color, stock, barcode, image }) => {
       const info = db
-        .prepare('INSERT INTO products (category_id, name, price, color, stock, barcode) VALUES (?, ?, ?, ?, ?, ?)')
-        .run(category_id, name, price, color || null, Math.round(stock || 0), barcode || null)
+        .prepare('INSERT INTO products (category_id, name, price, color, stock, barcode, image) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .run(category_id, name, price, color || null, Math.round(stock || 0), barcode || null, image || null)
       return db.prepare('SELECT * FROM products WHERE id = ?').get(info.lastInsertRowid)
     },
 
-    'products:update': ({ id, category_id, name, price, color, active, stock, barcode }) => {
-      db.prepare('UPDATE products SET category_id = ?, name = ?, price = ?, color = ?, active = ?, stock = ?, barcode = ? WHERE id = ?').run(
+    'products:update': ({ id, category_id, name, price, color, active, stock, barcode, image }) => {
+      db.prepare('UPDATE products SET category_id = ?, name = ?, price = ?, color = ?, active = ?, stock = ?, barcode = ?, image = ? WHERE id = ?').run(
         category_id,
         name,
         price,
@@ -286,10 +286,15 @@ export function registerIpc(db) {
         active ? 1 : 0,
         Math.round(stock || 0),
         barcode || null,
+        image || null,
         id
       )
       return db.prepare('SELECT * FROM products WHERE id = ?').get(id)
     },
+
+    // Lightweight stock-only snapshot (id → stock) for the order screen's live
+    // refresh, so it never has to pull product images on every tap.
+    'products:stock': () => db.prepare('SELECT id, stock FROM products').all(),
 
     // ---- Modifiers ----
     'products:modifiers': ({ productId }) => {

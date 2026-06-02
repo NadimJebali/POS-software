@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { money, unitsToMillis, useSettings } from '../lib/settings'
 import Modal from '../components/Modal'
+import ProductCard from '../components/ProductCard'
 import { useDialog } from '../components/Dialog'
 import { IconBack, IconTrash } from '../components/icons'
 
@@ -25,8 +26,8 @@ export default function Order() {
   // Live stock per product. Stock is reserved as items are added to the order, so
   // these counts reflect what's still available and must be refreshed after changes.
   const refreshStock = async () => {
-    const ps = await api.products.list()
-    const map = Object.fromEntries(ps.map((p) => [p.id, p.stock]))
+    const rows = await api.products.stock() // [{ id, stock }] — no image payload
+    const map = Object.fromEntries(rows.map((r) => [r.id, r.stock]))
     setStockMap(map)
     return map
   }
@@ -179,46 +180,9 @@ export default function Order() {
         </div>
 
         <div className="grid grid-cols-3 xl:grid-cols-4 gap-3 overflow-y-auto pr-1 content-start">
-          {products.map((p, i) => {
-            const remaining = remainingFor(p.id)
-            const out = remaining <= 0
-            const low = !out && remaining <= threshold
-            return (
-              <button
-                key={p.id}
-                onClick={() => addProduct(p)}
-                disabled={out}
-                style={{ animationDelay: `${Math.min(i * 20, 300)}ms` }}
-                className={`animate-rise relative card p-4 h-28 flex flex-col justify-between text-left active:scale-[0.97] transition-all overflow-hidden ${
-                  out
-                    ? 'border-berry/60 ring-1 ring-berry/40 opacity-50 cursor-not-allowed'
-                    : low
-                      ? 'border-ember/60 ring-1 ring-ember/30 hover:bg-surface2'
-                      : 'hover:border-ember/40 hover:bg-surface2'
-                }`}
-              >
-                {(out || low) && (
-                  <span
-                    className={`absolute top-0 right-0 px-2 py-0.5 rounded-bl-xl text-[10px] font-bold ${
-                      out ? 'bg-berry text-white' : 'bg-ember text-[#2a1c0c]'
-                    }`}
-                  >
-                    {out ? 'OUT' : 'LOW'}
-                  </span>
-                )}
-                <span className="text-lg font-semibold leading-tight pr-8">
-                  {p.name}
-                  {p.modifier_count > 0 && <span className="text-[10px] text-muted font-normal ml-1">• options</span>}
-                </span>
-                <span className="flex items-center justify-between gap-2">
-                  <span className="text-ember font-display font-bold text-lg tnum">{money(p.price)}</span>
-                  <span className={`text-[11px] font-semibold tnum ${out ? 'text-berry' : low ? 'text-ember' : 'text-muted'}`}>
-                    {out ? 'out of stock' : `${remaining} left`}
-                  </span>
-                </span>
-              </button>
-            )
-          })}
+          {products.map((p, i) => (
+            <ProductCard key={p.id} product={p} remaining={remainingFor(p.id)} threshold={threshold} index={i} onAdd={addProduct} />
+          ))}
           {products.length === 0 && <p className="text-muted col-span-full mt-4">No products in this category.</p>}
         </div>
       </div>

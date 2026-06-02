@@ -40,6 +40,7 @@ export const api = {
     create: (data) => call('products:create', data),
     update: (data) => call('products:update', data),
     remove: (id) => call('products:remove', { id }),
+    stock: () => call('products:stock'),
     modifiers: (productId) => call('products:modifiers', { productId })
   },
   modifiers: {

@@ -1,10 +1,38 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../lib/api'
 import { money, unitsToMillis, useSettings } from '../lib/settings'
 import PageHeader from '../components/PageHeader'
 import Modal from '../components/Modal'
 import { useDialog } from '../components/Dialog'
 import { IconPlus, IconTrash } from '../components/icons'
+
+// Downscale a chosen image to a small JPEG data URL so the DB stays lean. A white
+// backdrop is painted first so transparent PNGs don't flatten to black.
+function fileToResizedDataUrl(file, max = 512, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error('Could not read the image'))
+    reader.onload = () => {
+      const img = new Image()
+      img.onerror = () => reject(new Error('That file is not a valid image'))
+      img.onload = () => {
+        const scale = Math.min(1, max / Math.max(img.width, img.height))
+        const w = Math.max(1, Math.round(img.width * scale))
+        const h = Math.max(1, Math.round(img.height * scale))
+        const canvas = document.createElement('canvas')
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext('2d')
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, w, h)
+        ctx.drawImage(img, 0, 0, w, h)
+        resolve(canvas.toDataURL('image/jpeg', quality))
+      }
+      img.src = reader.result
+    }
+    reader.readAsDataURL(file)
+  })
+}
 
 // Stock badge with low/out colouring.
 function StockBadge({ stock, threshold }) {
@@ -135,7 +163,16 @@ export default function Products() {
             <tbody>
               {visible.map((p) => (
                 <tr key={p.id} className="border-t border-line/60 text-lg hover:bg-surface2/40">
-                  <td className="px-5 py-3.5 font-semibold">{p.name}</td>
+                  <td className="px-5 py-3.5 font-semibold">
+                    <div className="flex items-center gap-3">
+                      {p.image ? (
+                        <img src={p.image} alt="" className="w-10 h-10 rounded-lg object-cover border border-line shrink-0" />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-surface2 border border-line shrink-0" />
+                      )}
+                      <span>{p.name}</span>
+                    </div>
+                  </td>
                   <td className="px-5 py-3.5">
                     <span className="inline-flex items-center gap-2 text-muted">
                       <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.category_color }} />
@@ -169,9 +206,45 @@ export default function Products() {
 
 function ProductModal({ product, categories, onClose, onSave }) {
   const [form, setForm] = useState(product)
+  const [imgError, setImgError] = useState('')
+  const fileRef = useRef(null)
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+
+  const pickImage = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // allow re-picking the same file later
+    if (!file) return
+    setImgError('')
+    try {
+      set('image', await fileToResizedDataUrl(file))
+    } catch (err) {
+      setImgError(err.message)
+    }
+  }
+
   return (
     <Modal title={product.id ? 'Edit product' : 'New product'} onClose={onClose} width={product.id ? 560 : 480}>
+      <div className="flex gap-4">
+        <div className="shrink-0">
+          {form.image ? (
+            <img src={form.image} alt="" className="w-20 h-20 rounded-2xl object-cover border border-line" />
+          ) : (
+            <div className="w-20 h-20 rounded-2xl bg-surface2 border border-line flex items-center justify-center text-muted text-xs text-center px-1">
+              No image
+            </div>
+          )}
+        </div>
+        <div className="flex-1 self-center">
+          <span className="text-muted text-sm">Product image</span>
+          <div className="flex items-center gap-3 mt-1.5">
+            <button className="btn-ghost py-2" onClick={() => fileRef.current?.click()}>Upload</button>
+            {form.image && <button className="text-muted hover:text-berry text-sm" onClick={() => set('image', '')}>Remove</button>}
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={pickImage} />
+          </div>
+          {imgError && <p className="text-berry text-xs mt-1.5">{imgError}</p>}
+        </div>
+      </div>
+
       <label className="block">
         <span className="text-muted text-sm">Name</span>
         <input className="input mt-1.5" value={form.name} autoFocus onChange={(e) => set('name', e.target.value)} />
