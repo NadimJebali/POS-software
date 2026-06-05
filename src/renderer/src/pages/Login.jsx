@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useSettings } from '../lib/settings'
+import { useT } from '../lib/i18n'
 import { IconBack } from '../components/icons'
 
 const pad = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫']
@@ -9,6 +10,7 @@ const pad = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫']
 export default function Login() {
   const { login } = useAuth()
   const { settings } = useSettings()
+  const { t } = useT()
   const [users, setUsers] = useState([])
   const [selected, setSelected] = useState(null)
   const [pin, setPin] = useState('')
@@ -82,7 +84,7 @@ export default function Login() {
             </div>
             <div>
               <h1 className="font-display text-2xl font-bold leading-none">{settings.shop_name}</h1>
-              <p className="text-muted text-sm mt-1">Select your account to sign in</p>
+              <p className="text-muted text-sm mt-1">{t('login.title')}</p>
             </div>
           </div>
 
@@ -102,11 +104,11 @@ export default function Login() {
               >
                 <div className="font-semibold truncate">{u.name || u.username}</div>
                 <div className={`text-xs mt-0.5 ${u.role === 'admin' ? 'text-ember' : 'text-muted'}`}>
-                  {u.role === 'admin' ? 'Administrator' : 'Cashier'}
+                  {u.role === 'admin' ? t('login.administrator') : t('login.cashier')}
                 </div>
               </button>
             ))}
-            {users.length === 0 && <p className="text-muted col-span-2">No users found.</p>}
+            {users.length === 0 && <p className="text-muted col-span-2">{t('login.noUsers')}</p>}
           </div>
         </div>
 
@@ -119,7 +121,7 @@ export default function Login() {
                   <IconBack width={18} height={18} />
                 </button>
                 <span className="text-muted">
-                  Enter PIN for <span className="text-cream font-semibold">{selected.name || selected.username}</span>
+                  {t('login.enterPinFor')} <span className="text-cream font-semibold">{selected.name || selected.username}</span>
                 </span>
               </div>
 
@@ -134,8 +136,8 @@ export default function Login() {
 
               {locked ? (
                 <div className="mb-3 rounded-xl bg-berry/15 border border-berry/40 px-4 py-2.5 text-center">
-                  <div className="text-berry font-semibold">Too many attempts</div>
-                  <div className="text-cream text-sm tnum">Locked — try again in {remaining}s</div>
+                  <div className="text-berry font-semibold">{t('login.tooMany')}</div>
+                  <div className="text-cream text-sm tnum">{t('login.lockedTryAgain', { n: remaining })}</div>
                 </div>
               ) : (
                 error && <p className="text-berry text-center text-sm mb-3">{error}</p>
@@ -159,12 +161,12 @@ export default function Login() {
               </div>
 
               <button className="btn-accent mt-4 text-xl py-4" disabled={pin.length < 4 || busy || locked} onClick={submit}>
-                {locked ? `Locked · ${remaining}s` : busy ? 'Signing in…' : 'Sign in'}
+                {locked ? t('login.locked', { n: remaining }) : busy ? t('login.signingIn') : t('login.signIn')}
               </button>
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center text-muted text-center">
-              <p>Pick an account on the left,<br />then enter your PIN.</p>
+              <p>{t('login.pickAccount')}</p>
             </div>
           )}
         </div>

@@ -286,7 +286,8 @@ const DEFAULT_SETTINGS = {
   printer_name: '',
   paper_width: '80', // mm: '58' | '80'
   low_stock_threshold: '5', // warn when product stock is at or below this
-  auto_lock_minutes: '0' // sign out after this many idle minutes (0 = never)
+  auto_lock_minutes: '0', // sign out after this many idle minutes (0 = never)
+  language: 'en' // UI language: 'en' | 'fr' | 'ar'
 }
 
 function seedSettings(db) {

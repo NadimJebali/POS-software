@@ -3,17 +3,18 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { useSettings } from '../lib/settings'
 import { useAuth } from '../lib/auth'
 import { useLicense } from '../lib/license'
+import { useT } from '../lib/i18n'
 import { api } from '../lib/api'
 import { IconFloor, IconProducts, IconTables, IconHistory, IconChart, IconSettings, IconUsers, IconLogout } from './icons'
 
 const links = [
-  { to: '/', label: 'Floor', Icon: IconFloor, end: true },
-  { to: '/products', label: 'Menu', Icon: IconProducts, admin: true, lowStock: true },
-  { to: '/tables', label: 'Tables', Icon: IconTables, admin: true },
-  { to: '/history', label: 'History', Icon: IconHistory },
-  { to: '/analytics', label: 'Stats', Icon: IconChart },
-  { to: '/users', label: 'Users', Icon: IconUsers, admin: true },
-  { to: '/settings', label: 'Setup', Icon: IconSettings, admin: true }
+  { to: '/', labelKey: 'nav.floor', Icon: IconFloor, end: true },
+  { to: '/products', labelKey: 'nav.menu', Icon: IconProducts, admin: true, lowStock: true },
+  { to: '/tables', labelKey: 'nav.tables', Icon: IconTables, admin: true },
+  { to: '/history', labelKey: 'nav.history', Icon: IconHistory },
+  { to: '/analytics', labelKey: 'nav.analytics', Icon: IconChart },
+  { to: '/users', labelKey: 'nav.users', Icon: IconUsers, admin: true },
+  { to: '/settings', labelKey: 'nav.setup', Icon: IconSettings, admin: true }
 ]
 
 function Clock() {
@@ -38,6 +39,7 @@ export default function Layout() {
   const { settings } = useSettings()
   const { user, isAdmin, logout } = useAuth()
   const { status: license } = useLicense()
+  const { t } = useT()
   const [lowCount, setLowCount] = useState(0)
 
   // Low-stock indicator for the Menu nav item (admins only).
@@ -62,7 +64,7 @@ export default function Layout() {
         </div>
 
         <div className="flex-1 flex flex-col gap-1 w-full px-3 overflow-y-auto">
-          {visible.map(({ to, label, Icon, end, lowStock }) => (
+          {visible.map(({ to, labelKey, Icon, end, lowStock }) => (
             <NavLink
               key={to}
               to={to}
@@ -86,7 +88,7 @@ export default function Layout() {
                       </span>
                     )}
                   </span>
-                  {label}
+                  {t(labelKey)}
                 </>
               )}
             </NavLink>
@@ -97,11 +99,11 @@ export default function Layout() {
         <div className="w-full px-2 flex flex-col items-center gap-2 pt-2 border-t border-line">
           <div className="text-center leading-tight" title={user?.name}>
             <div className="text-xs font-semibold text-cream truncate max-w-[80px]">{user?.name || user?.username}</div>
-            <div className={`text-[10px] ${isAdmin ? 'text-ember' : 'text-muted'}`}>{isAdmin ? 'Admin' : 'Cashier'}</div>
+            <div className={`text-[10px] ${isAdmin ? 'text-ember' : 'text-muted'}`}>{isAdmin ? t('login.administrator') : t('login.cashier')}</div>
           </div>
           <button
             onClick={logout}
-            title="Sign out"
+            title={t('common.signOut')}
             className="w-12 py-2 rounded-xl bg-surface2 text-muted hover:text-berry hover:bg-surface3 flex items-center justify-center transition"
           >
             <IconLogout width={20} height={20} />
@@ -113,7 +115,7 @@ export default function Layout() {
       <main className="flex-1 overflow-hidden flex flex-col">
         {license?.state === 'trial' && (
           <div className="shrink-0 bg-ember/15 border-b border-ember/30 text-ember text-sm font-semibold px-5 py-2 text-center">
-            Trial — {license.daysLeft} day{license.daysLeft === 1 ? '' : 's'} left{isAdmin ? ' · activate in Setup → License' : ''}
+            {t('nav.trialLeft', { n: license.daysLeft })}{isAdmin ? ` · ${t('nav.activateHint')}` : ''}
           </div>
         )}
         <div className="flex-1 overflow-hidden">

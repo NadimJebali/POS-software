@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../lib/api'
 import { useSettings } from '../lib/settings'
 import { useLicense } from '../lib/license'
+import { useT } from '../lib/i18n'
+import { LANGUAGES } from '../lib/locales'
 import { useDialog } from '../components/Dialog'
 import PageHeader from '../components/PageHeader'
 
@@ -15,6 +17,7 @@ function preview(form) {
 
 export default function Settings() {
   const { settings, save } = useSettings()
+  const { t } = useT()
   const [form, setForm] = useState(settings)
   const [printers, setPrinters] = useState([])
   const [savedAt, setSavedAt] = useState(0)
@@ -41,13 +44,25 @@ export default function Settings() {
 
   return (
     <div className="h-full flex flex-col p-7 overflow-hidden">
-      <PageHeader title="Setup" subtitle="Shop, receipt, currency & printer">
-        {savedAt > 0 && <span className="chip bg-mint/15 text-mint">Saved ✓</span>}
-        <button className="btn-accent" onClick={onSave}>Save changes</button>
+      <PageHeader title={t('settings.title')} subtitle={t('settings.subtitle')}>
+        {savedAt > 0 && <span className="chip bg-mint/15 text-mint">{t('settings.saved')}</span>}
+        <button className="btn-accent" onClick={onSave}>{t('settings.saveChanges')}</button>
       </PageHeader>
 
       <div className="grid grid-cols-2 gap-6 overflow-y-auto pr-1 pb-4">
         <LicenseSection />
+
+        {/* Language */}
+        <Section title={t('settings.language')}>
+          <div className="grid grid-cols-3 gap-2">
+            {LANGUAGES.map((l) => (
+              <button key={l.code} onClick={() => set('language', l.code)} className={btn(form.language === l.code)}>
+                {l.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-muted text-sm">{t('settings.languageHint')}</p>
+        </Section>
         <BackupSection />
 
         {/* Shop info */}
