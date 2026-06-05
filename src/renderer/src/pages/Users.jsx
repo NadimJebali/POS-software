@@ -49,7 +49,7 @@ export default function Users() {
       </PageHeader>
 
       <div className="card flex-1 overflow-y-auto">
-        <table className="w-full text-left">
+        <table className="w-full text-start">
           <thead className="sticky top-0 bg-surface text-muted text-sm z-10">
             <tr>
               <th className="px-5 py-4 font-medium">{t('users.cols.name')}</th>
@@ -75,8 +75,8 @@ export default function Users() {
                 <td className="px-5 py-3.5 text-center">
                   {u.active ? <span className="chip bg-mint/15 text-mint">{t('users.active')}</span> : <span className="chip bg-surface3 text-muted">{t('users.inactive')}</span>}
                 </td>
-                <td className="px-5 py-3.5 text-right whitespace-nowrap">
-                  <button className="px-3 py-2 rounded-xl bg-surface2 border border-line mr-2 hover:bg-surface3" onClick={() => setEditing({ ...u, pin: '' })}>{t('common.edit')}</button>
+                <td className="px-5 py-3.5 text-end whitespace-nowrap">
+                  <button className="px-3 py-2 rounded-xl bg-surface2 border border-line me-2 hover:bg-surface3" onClick={() => setEditing({ ...u, pin: '' })}>{t('common.edit')}</button>
                   <button className="px-3 py-2 rounded-xl bg-berry/80 text-white hover:bg-berry disabled:opacity-40" disabled={u.id === me.id} onClick={() => remove(u)}>{t('common.delete')}</button>
                 </td>
               </tr>

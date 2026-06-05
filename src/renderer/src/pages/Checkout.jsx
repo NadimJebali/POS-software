@@ -131,9 +131,9 @@ export default function Checkout() {
           {order.items.map((it) => (
             <div key={it.id} className="flex justify-between py-2.5 text-lg">
               <span className="text-cream">
-                <span className="text-muted tnum mr-2">{it.qty}×</span>
+                <span className="text-muted tnum me-2">{it.qty}×</span>
                 {it.name}
-                {it.modifiers && <span className="block text-sm text-ember ml-7">{it.modifiers}</span>}
+                {it.modifiers && <span className="block text-sm text-ember ms-7">{it.modifiers}</span>}
               </span>
               <span className="font-semibold tnum">{money(it.unit_price * it.qty)}</span>
             </div>
@@ -142,7 +142,7 @@ export default function Checkout() {
 
         {/* discount control */}
         <div className="mt-4 flex items-center gap-2">
-          <span className="text-muted text-sm mr-1">{t('checkout.discount')}</span>
+          <span className="text-muted text-sm me-1">{t('checkout.discount')}</span>
           {DISCOUNTS.map((d) => (
             <button
               key={d}
@@ -176,7 +176,7 @@ export default function Checkout() {
       </div>
 
       {/* payment panel */}
-      <div className="w-[460px] shrink-0 bg-surface/80 border-l border-line backdrop-blur-md flex flex-col p-6 gap-3 overflow-y-auto">
+      <div className="w-[460px] shrink-0 bg-surface/80 border-s border-line backdrop-blur-md flex flex-col p-6 gap-3 overflow-y-auto">
         {/* tendered / change-or-remaining (live as you type) */}
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-2xl bg-surface2 border border-line p-3 text-center">

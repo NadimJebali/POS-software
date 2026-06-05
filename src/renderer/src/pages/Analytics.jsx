@@ -73,7 +73,7 @@ export default function Analytics() {
               <button
                 key={p.key}
                 onClick={() => setPeriod(p.key)}
-                className={`card p-5 text-left transition-all ${active ? 'border-ember/50 shadow-glow' : 'hover:bg-surface2'}`}
+                className={`card p-5 text-start transition-all ${active ? 'border-ember/50 shadow-glow' : 'hover:bg-surface2'}`}
               >
                 <div className="text-muted text-sm">{t('analytics.' + p.metricKey)}</div>
                 <div className="font-display text-3xl font-bold text-ember mt-1 tnum">{money(overview[p.metric].total)}</div>

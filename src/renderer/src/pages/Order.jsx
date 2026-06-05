@@ -204,7 +204,7 @@ export default function Order() {
       )}
 
       {/* ---------- Order ticket ---------- */}
-      <div className="w-[400px] shrink-0 bg-surface/80 border-l border-line backdrop-blur-md flex flex-col">
+      <div className="w-[400px] shrink-0 bg-surface/80 border-s border-line backdrop-blur-md flex flex-col">
         <div className="p-6 border-b border-line">
           <h2 className="font-display text-2xl font-bold">{t('order.orderNum', { id: order.id })}</h2>
           <p className="text-muted">{itemCount === 1 ? t('order.item', { n: itemCount }) : t('order.items', { n: itemCount })}</p>
@@ -230,7 +230,7 @@ export default function Order() {
                   +
                 </button>
               </div>
-              <div className="w-[88px] text-right font-display font-bold tnum">{money(item.unit_price * item.qty)}</div>
+              <div className="w-[88px] text-end font-display font-bold tnum">{money(item.unit_price * item.qty)}</div>
             </div>
           ))}
         </div>
@@ -292,7 +292,7 @@ function ModifierPicker({ product, groups, onClose, onConfirm }) {
                   <button
                     key={o.id}
                     onClick={() => toggle(g, o.id)}
-                    className={`px-4 py-3 rounded-xl border text-left transition ${on ? 'bg-ember text-[#2a1c0c] border-ember' : 'bg-surface2 border-line hover:bg-surface3'}`}
+                    className={`px-4 py-3 rounded-xl border text-start transition ${on ? 'bg-ember text-[#2a1c0c] border-ember' : 'bg-surface2 border-line hover:bg-surface3'}`}
                   >
                     <div className="font-semibold">{o.name}</div>
                     {o.price_delta !== 0 && <div className={`text-xs tnum ${on ? '' : 'text-muted'}`}>+{money(o.price_delta)}</div>}

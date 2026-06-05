@@ -91,7 +91,7 @@ export default function History() {
       </PageHeader>
 
       <div className="card flex-1 overflow-y-auto">
-        <table className="w-full text-left">
+        <table className="w-full text-start">
           <thead className="sticky top-0 bg-surface text-muted text-sm z-10">
             <tr>
               <th className="px-5 py-4 font-medium">{t('history.cols.order')}</th>
@@ -99,9 +99,9 @@ export default function History() {
               <th className="px-5 py-4 font-medium">{t('history.cols.server')}</th>
               <th className="px-5 py-4 font-medium">{t('history.cols.time')}</th>
               <th className="px-5 py-4 font-medium text-center">{t('history.cols.items')}</th>
-              <th className="px-5 py-4 font-medium text-right">{t('history.cols.discount')}</th>
-              <th className="px-5 py-4 font-medium text-right">{t('history.cols.total')}</th>
-              <th className="px-5 py-4 font-medium text-right">{t('history.cols.change')}</th>
+              <th className="px-5 py-4 font-medium text-end">{t('history.cols.discount')}</th>
+              <th className="px-5 py-4 font-medium text-end">{t('history.cols.total')}</th>
+              <th className="px-5 py-4 font-medium text-end">{t('history.cols.change')}</th>
               <th className="px-5 py-4"></th>
             </tr>
           </thead>
@@ -117,17 +117,17 @@ export default function History() {
                 <td className="px-5 py-3.5 font-semibold tnum">
                   #{o.id}
                   {deleted && (
-                    <span className="ml-2 chip bg-berry/20 text-berry text-xs align-middle">{t('history.deletedBy', { name: o.deleted_by || '—' })}</span>
+                    <span className="ms-2 chip bg-berry/20 text-berry text-xs align-middle">{t('history.deletedBy', { name: o.deleted_by || '—' })}</span>
                   )}
                 </td>
                 <td className="px-5 py-3.5">{o.table_label || '—'}</td>
                 <td className="px-5 py-3.5">{o.user_name || '—'}</td>
                 <td className="px-5 py-3.5 text-muted tnum">{new Date(o.paid_at + 'Z').toLocaleString()}</td>
                 <td className="px-5 py-3.5 text-center tnum">{o.item_count}</td>
-                <td className="px-5 py-3.5 text-right tnum text-berry">{o.discount > 0 ? '- ' + money(o.discount) : '—'}</td>
-                <td className={`px-5 py-3.5 text-right font-display font-bold tnum ${deleted ? 'text-muted line-through' : 'text-ember'}`}>{money(o.total)}</td>
-                <td className={`px-5 py-3.5 text-right tnum ${o.change_due > 0 ? 'text-mint' : 'text-muted'}`}>{money(o.change_due)}</td>
-                <td className="px-5 py-3.5 text-right">
+                <td className="px-5 py-3.5 text-end tnum text-berry">{o.discount > 0 ? '- ' + money(o.discount) : '—'}</td>
+                <td className={`px-5 py-3.5 text-end font-display font-bold tnum ${deleted ? 'text-muted line-through' : 'text-ember'}`}>{money(o.total)}</td>
+                <td className={`px-5 py-3.5 text-end tnum ${o.change_due > 0 ? 'text-mint' : 'text-muted'}`}>{money(o.change_due)}</td>
+                <td className="px-5 py-3.5 text-end">
                   <button
                     className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-surface2 border border-line hover:bg-surface3 disabled:opacity-50"
                     disabled={printing === o.id}
@@ -221,9 +221,9 @@ function OrderDetail({ order, isAdmin, canDelete, onClose, onReprint, printing, 
         {order.items.map((it) => (
           <div key={it.id} className="flex items-center justify-between py-2.5 gap-3">
             <span className="flex-1 min-w-0">
-              {!edit && <span className="text-muted tnum mr-2">{it.qty}×</span>}
+              {!edit && <span className="text-muted tnum me-2">{it.qty}×</span>}
               <span className={q(it) === 0 ? 'line-through text-muted' : ''}>{it.name}</span>
-              <span className="text-muted text-sm tnum ml-2">@ {money(it.unit_price)}</span>
+              <span className="text-muted text-sm tnum ms-2">@ {money(it.unit_price)}</span>
               {it.modifiers && <span className="block text-xs text-ember">{it.modifiers}</span>}
             </span>
             {edit ? (
@@ -242,7 +242,7 @@ function OrderDetail({ order, isAdmin, canDelete, onClose, onReprint, printing, 
 
       {edit && (
         <div className="flex items-center gap-2 pt-1">
-          <span className="text-muted text-sm mr-1">{t('history.discount')}</span>
+          <span className="text-muted text-sm me-1">{t('history.discount')}</span>
           <button onClick={() => setDisc(null)} className={pill(disc === null)}>{t('history.keepDisc')}</button>
           {DISCOUNTS.map((d) => (
             <button key={d} onClick={() => setDisc(d)} className={pill(disc === d)}>{d === 0 ? t('common.none') : `${d}%`}</button>

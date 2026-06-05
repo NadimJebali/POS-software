@@ -74,7 +74,7 @@ export default function Floor() {
                   }`}
               >
                 <span
-                  className={`absolute top-3 right-3 w-2.5 h-2.5 rounded-full ${busy ? 'bg-ember' : 'bg-mint'}`}
+                  className={`absolute top-3 end-3 w-2.5 h-2.5 rounded-full ${busy ? 'bg-ember' : 'bg-mint'}`}
                 />
                 <div className="font-display text-5xl font-bold tnum">{tbl.label}</div>
                 <div className="text-xs text-muted mt-1">{t('floor.seats', { n: tbl.seats })}</div>

@@ -54,7 +54,7 @@ export default function Layout() {
 
   return (
     <div className="flex h-screen">
-      <nav className="w-[104px] shrink-0 flex flex-col items-center py-5 gap-1 bg-surface/70 border-r border-line backdrop-blur-md">
+      <nav className="w-[104px] shrink-0 flex flex-col items-center py-5 gap-1 bg-surface/70 border-e border-line backdrop-blur-md">
         <div
           className="w-12 h-12 rounded-2xl flex items-center justify-center font-display text-2xl text-[#2a1c0c] mb-4"
           style={{ background: 'linear-gradient(135deg,#f7b96b,#ec9a45)', boxShadow: '0 8px 22px -8px rgba(236,154,69,.7)' }}
@@ -78,12 +78,12 @@ export default function Layout() {
               {({ isActive }) => (
                 <>
                   {isActive && (
-                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-7 w-1 rounded-r-full bg-ember shadow-[0_0_12px_rgba(236,154,69,.8)]" />
+                    <span className="absolute start-0 top-1/2 -translate-y-1/2 h-7 w-1 rounded-e-full bg-ember shadow-[0_0_12px_rgba(236,154,69,.8)]" />
                   )}
                   <span className="relative">
                     <Icon width={24} height={24} />
                     {lowStock && lowCount > 0 && (
-                      <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-berry text-white text-[10px] font-bold flex items-center justify-center tnum">
+                      <span className="absolute -top-1.5 -end-2 min-w-[16px] h-4 px-1 rounded-full bg-berry text-white text-[10px] font-bold flex items-center justify-center tnum">
                         {lowCount}
                       </span>
                     )}

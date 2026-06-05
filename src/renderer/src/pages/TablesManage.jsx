@@ -63,7 +63,7 @@ export default function TablesManage() {
               style={{ animationDelay: `${Math.min(i * 25, 400)}ms` }}
               className="animate-rise card p-4 flex flex-col items-center gap-2 relative"
             >
-              <span className={`absolute top-3 right-3 w-2.5 h-2.5 rounded-full ${busy ? 'bg-ember' : 'bg-mint'}`} />
+              <span className={`absolute top-3 end-3 w-2.5 h-2.5 rounded-full ${busy ? 'bg-ember' : 'bg-mint'}`} />
               <div className="font-display text-4xl font-bold tnum">{tbl.label}</div>
               <div className="text-xs text-muted">{t('tables.seats', { n: tbl.seats })}</div>
               <div className={`chip text-xs ${busy ? 'bg-ember/15 text-ember' : 'bg-mint/15 text-mint'}`}>
