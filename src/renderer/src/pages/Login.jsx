@@ -143,7 +143,7 @@ export default function Login() {
                 error && <p className="text-berry text-center text-sm mb-3">{error}</p>
               )}
 
-              <div className="grid grid-cols-3 gap-2.5">
+              <div dir="ltr" className="grid grid-cols-3 gap-2.5">
                 {pad.map((k, i) => (
                   <button
                     key={i}

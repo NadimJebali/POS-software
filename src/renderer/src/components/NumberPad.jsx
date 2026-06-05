@@ -17,7 +17,8 @@ export default function NumberPad({ value, onChange, maxDecimals }) {
   }
 
   return (
-    <div className="grid grid-cols-3 gap-2.5">
+    // Keep the keypad physically LTR so digits stay 7-8-9 / 4-5-6 even under RTL.
+    <div dir="ltr" className="grid grid-cols-3 gap-2.5">
       {keys.map((k) => (
         <button
           key={k}
