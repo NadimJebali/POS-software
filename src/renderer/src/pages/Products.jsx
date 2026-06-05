@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../lib/api'
 import { money, unitsToMillis, useSettings } from '../lib/settings'
+import { useT } from '../lib/i18n'
 import PageHeader from '../components/PageHeader'
 import Modal from '../components/Modal'
 import { useDialog } from '../components/Dialog'
@@ -36,9 +37,10 @@ function fileToResizedDataUrl(file, max = 512, quality = 0.82) {
 
 // Stock badge with low/out colouring.
 function StockBadge({ stock, threshold }) {
-  if (stock <= 0) return <span className="chip bg-berry/20 text-berry">Out of stock</span>
-  if (stock <= threshold) return <span className="chip bg-ember/15 text-ember tnum">{stock} left</span>
-  return <span className="chip bg-surface3 text-muted tnum">{stock} in stock</span>
+  const { t } = useT()
+  if (stock <= 0) return <span className="chip bg-berry/20 text-berry">{t('products.outOfStock')}</span>
+  if (stock <= threshold) return <span className="chip bg-ember/15 text-ember tnum">{t('products.left', { n: stock })}</span>
+  return <span className="chip bg-surface3 text-muted tnum">{t('products.inStock', { n: stock })}</span>
 }
 
 const COLORS = ['#EC9A45', '#E26A52', '#54D6A0', '#6BA3F7', '#B583F7', '#F7B96B', '#9AA35A', '#9789A8']
@@ -46,6 +48,7 @@ const COLORS = ['#EC9A45', '#E26A52', '#54D6A0', '#6BA3F7', '#B583F7', '#F7B96B'
 export default function Products() {
   const { settings } = useSettings()
   const { confirm } = useDialog()
+  const { t } = useT()
   const threshold = parseInt(settings.low_stock_threshold || '5', 10)
   const [categories, setCategories] = useState([])
   const [products, setProducts] = useState([])
@@ -79,7 +82,7 @@ export default function Products() {
 
   const lowItems = products.filter((p) => p.stock <= threshold)
   const deleteProduct = async (p) => {
-    if (await confirm({ title: 'Delete product', message: `Delete “${p.name}”?`, confirmText: 'Delete', danger: true })) {
+    if (await confirm({ title: t('products.deleteTitle'), message: t('products.deleteMsg', { name: p.name }), confirmText: t('common.delete'), danger: true })) {
       await api.products.remove(p.id)
       loadAll()
     }
@@ -91,7 +94,7 @@ export default function Products() {
     loadAll()
   }
   const deleteCategory = async (c) => {
-    if (await confirm({ title: 'Delete category', message: `Delete category “${c.name}” and all its products?`, confirmText: 'Delete', danger: true })) {
+    if (await confirm({ title: t('products.deleteCatTitle'), message: t('products.deleteCatMsg', { name: c.name }), confirmText: t('common.delete'), danger: true })) {
       await api.categories.remove(c.id)
       if (selectedCat === c.id) setSelectedCat(null)
       loadAll()
@@ -102,12 +105,12 @@ export default function Products() {
     <div className="h-full flex">
       {/* categories rail */}
       <div className="w-72 shrink-0 bg-surface/60 border-r border-line p-4 flex flex-col gap-2 overflow-y-auto">
-        <h2 className="font-display text-lg font-bold mb-1 px-1">Categories</h2>
+        <h2 className="font-display text-lg font-bold mb-1 px-1">{t('products.categories')}</h2>
         <button
           onClick={() => setSelectedCat(null)}
           className={`text-left px-4 py-3 rounded-2xl font-semibold transition ${selectedCat === null ? 'bg-ember text-[#2a1c0c]' : 'bg-surface2 hover:bg-surface3'}`}
         >
-          All products · {products.length}
+          {t('products.allProducts', { n: products.length })}
         </button>
         {categories.map((c) => {
           const count = products.filter((p) => p.category_id === c.id).length
@@ -126,15 +129,15 @@ export default function Products() {
           )
         })}
         <button className="btn-ghost mt-2" onClick={() => setCatModal({ name: '', color: COLORS[0], sort_order: categories.length + 1 })}>
-          <IconPlus width={18} height={18} /> Category
+          <IconPlus width={18} height={18} /> {t('products.category')}
         </button>
       </div>
 
       {/* product list */}
       <div className="flex-1 flex flex-col p-7 overflow-hidden">
-        <PageHeader title="Menu" subtitle={`${visible.length} product${visible.length === 1 ? '' : 's'}`}>
+        <PageHeader title={t('products.title')} subtitle={t('products.count', { n: visible.length })}>
           <button className="btn-accent" disabled={categories.length === 0} onClick={() => setEditing({ name: '', priceStr: '', category_id: selectedCat || categories[0]?.id, active: 1, stock: 0, barcode: '' })}>
-            <IconPlus width={20} height={20} /> Add product
+            <IconPlus width={20} height={20} /> {t('products.addProduct')}
           </button>
         </PageHeader>
 
@@ -142,8 +145,7 @@ export default function Products() {
           <div className="mb-4 rounded-2xl bg-ember/10 border border-ember/40 px-5 py-3 flex items-center gap-3 animate-rise">
             <span className="text-2xl">⚠️</span>
             <span className="text-cream">
-              <span className="font-semibold text-ember">{lowItems.length}</span> product{lowItems.length === 1 ? ' is' : 's are'} low or out of stock
-              <span className="text-muted"> (threshold {threshold})</span>: {lowItems.slice(0, 4).map((p) => p.name).join(', ')}{lowItems.length > 4 ? '…' : ''}
+              {t('products.lowWarn', { n: lowItems.length, t: threshold })}: {lowItems.slice(0, 4).map((p) => p.name).join(', ')}{lowItems.length > 4 ? '…' : ''}
             </span>
           </div>
         )}
@@ -152,11 +154,11 @@ export default function Products() {
           <table className="w-full text-left">
             <thead className="sticky top-0 bg-surface text-muted text-sm z-10">
               <tr>
-                <th className="px-5 py-4 font-medium">Name</th>
-                <th className="px-5 py-4 font-medium">Category</th>
-                <th className="px-5 py-4 font-medium text-right">Price</th>
-                <th className="px-5 py-4 font-medium text-center">Stock</th>
-                <th className="px-5 py-4 font-medium text-center">Status</th>
+                <th className="px-5 py-4 font-medium">{t('products.cols.name')}</th>
+                <th className="px-5 py-4 font-medium">{t('products.cols.category')}</th>
+                <th className="px-5 py-4 font-medium text-right">{t('products.cols.price')}</th>
+                <th className="px-5 py-4 font-medium text-center">{t('products.cols.stock')}</th>
+                <th className="px-5 py-4 font-medium text-center">{t('products.cols.status')}</th>
                 <th className="px-5 py-4"></th>
               </tr>
             </thead>
@@ -182,16 +184,16 @@ export default function Products() {
                   <td className="px-5 py-3.5 text-right font-display font-bold text-ember tnum">{money(p.price)}</td>
                   <td className="px-5 py-3.5 text-center"><StockBadge stock={p.stock} threshold={threshold} /></td>
                   <td className="px-5 py-3.5 text-center">
-                    {p.active ? <span className="chip bg-mint/15 text-mint">Active</span> : <span className="chip bg-surface3 text-muted">Hidden</span>}
+                    {p.active ? <span className="chip bg-mint/15 text-mint">{t('common.active')}</span> : <span className="chip bg-surface3 text-muted">{t('common.hidden')}</span>}
                   </td>
                   <td className="px-5 py-3.5 text-right whitespace-nowrap">
-                    <button className="px-3 py-2 rounded-xl bg-surface2 border border-line mr-2 hover:bg-surface3" onClick={() => setEditing({ ...p, priceStr: String(p.price / 1000) })}>Edit</button>
-                    <button className="px-3 py-2 rounded-xl bg-berry/80 text-white hover:bg-berry" onClick={() => deleteProduct(p)}>Delete</button>
+                    <button className="px-3 py-2 rounded-xl bg-surface2 border border-line mr-2 hover:bg-surface3" onClick={() => setEditing({ ...p, priceStr: String(p.price / 1000) })}>{t('common.edit')}</button>
+                    <button className="px-3 py-2 rounded-xl bg-berry/80 text-white hover:bg-berry" onClick={() => deleteProduct(p)}>{t('common.delete')}</button>
                   </td>
                 </tr>
               ))}
               {visible.length === 0 && (
-                <tr><td colSpan={6} className="px-5 py-12 text-center text-muted">No products yet.</td></tr>
+                <tr><td colSpan={6} className="px-5 py-12 text-center text-muted">{t('products.noProducts')}</td></tr>
               )}
             </tbody>
           </table>
@@ -208,6 +210,7 @@ function ProductModal({ product, categories, onClose, onSave }) {
   const [form, setForm] = useState(product)
   const [imgError, setImgError] = useState('')
   const fileRef = useRef(null)
+  const { t } = useT()
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
   const pickImage = async (e) => {
@@ -223,22 +226,22 @@ function ProductModal({ product, categories, onClose, onSave }) {
   }
 
   return (
-    <Modal title={product.id ? 'Edit product' : 'New product'} onClose={onClose} width={product.id ? 560 : 480}>
+    <Modal title={product.id ? t('products.editProduct') : t('products.newProduct')} onClose={onClose} width={product.id ? 560 : 480}>
       <div className="flex gap-4">
         <div className="shrink-0">
           {form.image ? (
             <img src={form.image} alt="" className="w-20 h-20 rounded-2xl object-cover border border-line" />
           ) : (
             <div className="w-20 h-20 rounded-2xl bg-surface2 border border-line flex items-center justify-center text-muted text-xs text-center px-1">
-              No image
+              {t('products.noImage')}
             </div>
           )}
         </div>
         <div className="flex-1 self-center">
-          <span className="text-muted text-sm">Product image</span>
+          <span className="text-muted text-sm">{t('products.image')}</span>
           <div className="flex items-center gap-3 mt-1.5">
-            <button className="btn-ghost py-2" onClick={() => fileRef.current?.click()}>Upload</button>
-            {form.image && <button className="text-muted hover:text-berry text-sm" onClick={() => set('image', '')}>Remove</button>}
+            <button className="btn-ghost py-2" onClick={() => fileRef.current?.click()}>{t('common.upload')}</button>
+            {form.image && <button className="text-muted hover:text-berry text-sm" onClick={() => set('image', '')}>{t('common.remove')}</button>}
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={pickImage} />
           </div>
           {imgError && <p className="text-berry text-xs mt-1.5">{imgError}</p>}
@@ -246,45 +249,45 @@ function ProductModal({ product, categories, onClose, onSave }) {
       </div>
 
       <label className="block">
-        <span className="text-muted text-sm">Name</span>
+        <span className="text-muted text-sm">{t('products.name')}</span>
         <input className="input mt-1.5" value={form.name} autoFocus onChange={(e) => set('name', e.target.value)} />
       </label>
       <div className="grid grid-cols-2 gap-3">
         <label className="block">
-          <span className="text-muted text-sm">Price</span>
-          <input className="input mt-1.5 tnum" inputMode="decimal" placeholder="e.g. 2.500" value={form.priceStr} onChange={(e) => set('priceStr', e.target.value)} />
+          <span className="text-muted text-sm">{t('products.price')}</span>
+          <input className="input mt-1.5 tnum" inputMode="decimal" placeholder={t('products.pricePh')} value={form.priceStr} onChange={(e) => set('priceStr', e.target.value)} />
         </label>
         <label className="block">
-          <span className="text-muted text-sm">Stock on hand</span>
+          <span className="text-muted text-sm">{t('products.stockOnHand')}</span>
           <input className="input mt-1.5 tnum" type="number" inputMode="numeric" value={form.stock ?? 0} onChange={(e) => set('stock', e.target.value)} />
         </label>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <label className="block">
-          <span className="text-muted text-sm">Category</span>
+          <span className="text-muted text-sm">{t('products.category')}</span>
           <select className="input mt-1.5" value={form.category_id} onChange={(e) => set('category_id', e.target.value)}>
             {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </label>
         <label className="block">
-          <span className="text-muted text-sm">Barcode</span>
-          <input className="input mt-1.5 tnum" placeholder="scan or type" value={form.barcode || ''} onChange={(e) => set('barcode', e.target.value)} />
+          <span className="text-muted text-sm">{t('products.barcode')}</span>
+          <input className="input mt-1.5 tnum" placeholder={t('products.scanOrType')} value={form.barcode || ''} onChange={(e) => set('barcode', e.target.value)} />
         </label>
       </div>
       <label className="flex items-center gap-3">
         <input type="checkbox" className="w-6 h-6 accent-[#EC9A45]" checked={!!form.active} onChange={(e) => set('active', e.target.checked ? 1 : 0)} />
-        <span>Active (shown on order screen)</span>
+        <span>{t('products.activeShown')}</span>
       </label>
 
       {product.id ? (
         <ModifierEditor productId={product.id} />
       ) : (
-        <p className="text-muted text-xs">Save the product first to add size/extra options.</p>
+        <p className="text-muted text-xs">{t('products.saveFirst')}</p>
       )}
 
       <div className="flex gap-3 pt-1">
-        <button className="btn-ghost flex-1" onClick={onClose}>Cancel</button>
-        <button className="btn-accent flex-1" disabled={!form.name.trim()} onClick={() => onSave(form)}>Save</button>
+        <button className="btn-ghost flex-1" onClick={onClose}>{t('common.cancel')}</button>
+        <button className="btn-accent flex-1" disabled={!form.name.trim()} onClick={() => onSave(form)}>{t('common.save')}</button>
       </div>
     </Modal>
   )
@@ -292,6 +295,7 @@ function ProductModal({ product, categories, onClose, onSave }) {
 
 function ModifierEditor({ productId }) {
   const { confirm } = useDialog()
+  const { t } = useT()
   const [groups, setGroups] = useState([])
   const [adding, setAdding] = useState(false)
   const [gName, setGName] = useState('')
@@ -313,7 +317,7 @@ function ModifierEditor({ productId }) {
     load()
   }
   const removeGroup = async (id) => {
-    if (await confirm({ title: 'Delete group', message: 'Delete this option group?', confirmText: 'Delete', danger: true })) {
+    if (await confirm({ title: t('products.deleteGroupTitle'), message: t('products.deleteGroupMsg'), confirmText: t('common.delete'), danger: true })) {
       await api.modifiers.removeGroup(id)
       load()
     }
@@ -330,18 +334,18 @@ function ModifierEditor({ productId }) {
   return (
     <div className="rounded-2xl border border-line bg-surface2/40 p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <span className="font-semibold">Options (sizes / extras)</span>
-        {!adding && <button className="text-ember text-sm font-semibold" onClick={() => setAdding(true)}>+ Add group</button>}
+        <span className="font-semibold">{t('products.options')}</span>
+        {!adding && <button className="text-ember text-sm font-semibold" onClick={() => setAdding(true)}>{t('products.addGroup')}</button>}
       </div>
 
-      {groups.length === 0 && !adding && <p className="text-muted text-sm">No options. Add a group like “Size” or “Extras”.</p>}
+      {groups.length === 0 && !adding && <p className="text-muted text-sm">{t('products.noOptions')}</p>}
 
       {groups.map((g) => (
         <div key={g.id} className="rounded-xl bg-surface border border-line p-3">
           <div className="flex items-center justify-between mb-2">
             <span className="font-semibold">
               {g.name}
-              <span className="text-xs text-muted ml-2">{g.required ? 'required · ' : ''}{g.multi ? 'multiple' : 'pick one'}</span>
+              <span className="text-xs text-muted ml-2">{g.required ? t('common.required') + ' · ' : ''}{g.multi ? t('products.multiple') : t('products.pickOne')}</span>
             </span>
             <button className="text-muted hover:text-berry" onClick={() => removeGroup(g.id)}><IconTrash width={16} height={16} /></button>
           </div>
@@ -359,14 +363,14 @@ function ModifierEditor({ productId }) {
 
       {adding && (
         <div className="rounded-xl bg-surface border border-line p-3 space-y-2">
-          <input className="input py-2" placeholder="Group name (e.g. Size)" value={gName} autoFocus onChange={(e) => setGName(e.target.value)} />
+          <input className="input py-2" placeholder={t('products.groupName')} value={gName} autoFocus onChange={(e) => setGName(e.target.value)} />
           <div className="flex gap-4 text-sm">
-            <label className="flex items-center gap-2"><input type="checkbox" className="w-5 h-5 accent-[#EC9A45]" checked={gRequired} onChange={(e) => setGRequired(e.target.checked)} /> Required</label>
-            <label className="flex items-center gap-2"><input type="checkbox" className="w-5 h-5 accent-[#EC9A45]" checked={gMulti} onChange={(e) => setGMulti(e.target.checked)} /> Allow multiple</label>
+            <label className="flex items-center gap-2"><input type="checkbox" className="w-5 h-5 accent-[#EC9A45]" checked={gRequired} onChange={(e) => setGRequired(e.target.checked)} /> {t('products.requiredOpt')}</label>
+            <label className="flex items-center gap-2"><input type="checkbox" className="w-5 h-5 accent-[#EC9A45]" checked={gMulti} onChange={(e) => setGMulti(e.target.checked)} /> {t('products.allowMultiple')}</label>
           </div>
           <div className="flex gap-2">
-            <button className="btn-ghost flex-1 py-2" onClick={() => setAdding(false)}>Cancel</button>
-            <button className="btn-accent flex-1 py-2" disabled={!gName.trim()} onClick={addGroup}>Add group</button>
+            <button className="btn-ghost flex-1 py-2" onClick={() => setAdding(false)}>{t('common.cancel')}</button>
+            <button className="btn-accent flex-1 py-2" disabled={!gName.trim()} onClick={addGroup}>{t('products.addGroupBtn')}</button>
           </div>
         </div>
       )}
@@ -377,6 +381,7 @@ function ModifierEditor({ productId }) {
 function OptionAdder({ onAdd }) {
   const [name, setName] = useState('')
   const [price, setPrice] = useState('')
+  const { t } = useT()
   const submit = () => {
     if (!name.trim()) return
     onAdd(name.trim(), price)
@@ -385,24 +390,25 @@ function OptionAdder({ onAdd }) {
   }
   return (
     <div className="flex gap-2">
-      <input className="input py-2 flex-1" placeholder="Option name" value={name} onChange={(e) => setName(e.target.value)} />
-      <input className="input py-2 w-28 tnum" placeholder="+ price" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} />
-      <button className="btn-ghost py-2 px-4" disabled={!name.trim()} onClick={submit}>Add</button>
+      <input className="input py-2 flex-1" placeholder={t('products.optionName')} value={name} onChange={(e) => setName(e.target.value)} />
+      <input className="input py-2 w-28 tnum" placeholder={t('products.addPricePh')} inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} />
+      <button className="btn-ghost py-2 px-4" disabled={!name.trim()} onClick={submit}>{t('common.add')}</button>
     </div>
   )
 }
 
 function CategoryModal({ category, onClose, onSave, onDelete }) {
   const [form, setForm] = useState(category)
+  const { t } = useT()
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
   return (
-    <Modal title={category.id ? 'Edit category' : 'New category'} onClose={onClose}>
+    <Modal title={category.id ? t('products.editCategory') : t('products.newCategory')} onClose={onClose}>
       <label className="block">
-        <span className="text-muted text-sm">Name</span>
+        <span className="text-muted text-sm">{t('products.name')}</span>
         <input className="input mt-1.5" value={form.name} autoFocus onChange={(e) => set('name', e.target.value)} />
       </label>
       <div>
-        <span className="text-muted text-sm">Color</span>
+        <span className="text-muted text-sm">{t('products.color')}</span>
         <div className="flex flex-wrap gap-2.5 mt-2">
           {COLORS.map((c) => (
             <button key={c} onClick={() => set('color', c)} style={{ backgroundColor: c }} className={`w-10 h-10 rounded-full transition ${form.color === c ? 'ring-2 ring-cream ring-offset-2 ring-offset-surface' : ''}`} />
@@ -411,8 +417,8 @@ function CategoryModal({ category, onClose, onSave, onDelete }) {
       </div>
       <div className="flex gap-3 pt-1">
         {onDelete && <button className="btn-danger px-4" onClick={onDelete}><IconTrash width={20} height={20} /></button>}
-        <button className="btn-ghost flex-1" onClick={onClose}>Cancel</button>
-        <button className="btn-accent flex-1" disabled={!form.name.trim()} onClick={() => onSave(form)}>Save</button>
+        <button className="btn-ghost flex-1" onClick={onClose}>{t('common.cancel')}</button>
+        <button className="btn-accent flex-1" disabled={!form.name.trim()} onClick={() => onSave(form)}>{t('common.save')}</button>
       </div>
     </Modal>
   )

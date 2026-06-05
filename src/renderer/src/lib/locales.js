@@ -52,7 +52,9 @@ export const locales = {
       deleteCatTitle: 'Delete category', deleteCatMsg: 'Delete category “{name}” and all its products?',
       options: 'Options (sizes / extras)', addGroup: '+ Add group', noOptions: 'No options. Add a group like “Size” or “Extras”.',
       groupName: 'Group name (e.g. Size)', requiredOpt: 'Required', allowMultiple: 'Allow multiple', multiple: 'multiple', pickOne: 'pick one',
-      optionName: 'Option name', addPricePh: '+ price', addGroupBtn: 'Add group', cols: { name: 'Name', category: 'Category', price: 'Price', stock: 'Stock', status: 'Status' }
+      optionName: 'Option name', addPricePh: '+ price', addGroupBtn: 'Add group', pricePh: 'e.g. 2.500',
+      deleteGroupTitle: 'Delete group', deleteGroupMsg: 'Delete this option group?',
+      cols: { name: 'Name', category: 'Category', price: 'Price', stock: 'Stock', status: 'Status' }
     },
     tables: {
       title: 'Tables', subtitle: '{n} table(s) · tap to manage', addTable: 'Add table', seats: '{n} seats', available: 'available',
@@ -147,7 +149,9 @@ export const locales = {
       deleteCatTitle: 'Supprimer la catégorie', deleteCatMsg: 'Supprimer la catégorie « {name} » et tous ses produits ?',
       options: 'Options (tailles / extras)', addGroup: '+ Ajouter un groupe', noOptions: 'Aucune option. Ajoutez un groupe comme « Taille ».',
       groupName: 'Nom du groupe (ex. Taille)', requiredOpt: 'Requis', allowMultiple: 'Choix multiple', multiple: 'multiple', pickOne: 'un choix',
-      optionName: 'Nom de l’option', addPricePh: '+ prix', addGroupBtn: 'Ajouter', cols: { name: 'Nom', category: 'Catégorie', price: 'Prix', stock: 'Stock', status: 'Statut' }
+      optionName: 'Nom de l’option', addPricePh: '+ prix', addGroupBtn: 'Ajouter', pricePh: 'ex. 2.500',
+      deleteGroupTitle: 'Supprimer le groupe', deleteGroupMsg: 'Supprimer ce groupe d’options ?',
+      cols: { name: 'Nom', category: 'Catégorie', price: 'Prix', stock: 'Stock', status: 'Statut' }
     },
     tables: {
       title: 'Tables', subtitle: '{n} table(s) · touchez pour gérer', addTable: 'Ajouter une table', seats: '{n} places', available: 'disponible',
@@ -242,7 +246,9 @@ export const locales = {
       deleteCatTitle: 'حذف الفئة', deleteCatMsg: 'حذف الفئة « {name} » وكل منتجاتها؟',
       options: 'الخيارات (أحجام / إضافات)', addGroup: '+ إضافة مجموعة', noOptions: 'لا خيارات. أضف مجموعة مثل « الحجم ».',
       groupName: 'اسم المجموعة (مثل الحجم)', requiredOpt: 'إلزامي', allowMultiple: 'اختيار متعدّد', multiple: 'متعدّد', pickOne: 'اختيار واحد',
-      optionName: 'اسم الخيار', addPricePh: '+ السعر', addGroupBtn: 'إضافة', cols: { name: 'الاسم', category: 'الفئة', price: 'السعر', stock: 'المخزون', status: 'الحالة' }
+      optionName: 'اسم الخيار', addPricePh: '+ السعر', addGroupBtn: 'إضافة', pricePh: 'مثل 2.500',
+      deleteGroupTitle: 'حذف المجموعة', deleteGroupMsg: 'حذف مجموعة الخيارات هذه؟',
+      cols: { name: 'الاسم', category: 'الفئة', price: 'السعر', stock: 'المخزون', status: 'الحالة' }
     },
     tables: {
       title: 'الطاولات', subtitle: '{n} طاولة · اضغط للإدارة', addTable: 'إضافة طاولة', seats: '{n} مقاعد', available: 'متاحة',
