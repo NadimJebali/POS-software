@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { money, unitsToMillis, currencyDecimals } from '../lib/settings'
+import { useT } from '../lib/i18n'
 import NumberPad from '../components/NumberPad'
 import Modal from '../components/Modal'
 import { useDialog } from '../components/Dialog'
@@ -14,6 +15,7 @@ export default function Checkout() {
   const { orderId } = useParams()
   const navigate = useNavigate()
   const { alert } = useDialog()
+  const { t } = useT()
 
   const [order, setOrder] = useState(null)
   const [method, setMethod] = useState('cash')
@@ -26,7 +28,7 @@ export default function Checkout() {
     api.orders.get(Number(orderId)).then(setOrder)
   }, [orderId])
 
-  if (!order) return <div className="p-8 text-muted">Loading…</div>
+  if (!order) return <div className="p-8 text-muted">{t('common.loading')}</div>
 
   const dec = currencyDecimals()
   const amount = unitsToMillis(amountStr)
@@ -67,7 +69,7 @@ export default function Checkout() {
       const result = await api.orders.complete(order.id)
       setPaid(result)
     } catch (e) {
-      alert({ title: 'Cannot complete sale', message: e.message })
+      alert({ title: t('checkout.cannotComplete'), message: e.message })
     } finally {
       setBusy(false)
     }
@@ -77,7 +79,7 @@ export default function Checkout() {
     try {
       await api.receipt.print(paid.id)
     } catch (e) {
-      alert({ title: 'Print failed', message: e.message })
+      alert({ title: t('checkout.printFailed'), message: e.message })
     }
   }
 
@@ -90,20 +92,20 @@ export default function Checkout() {
             <path d="M20 6L9 17l-5-5" />
           </svg>
         </div>
-        <h1 className="font-display text-4xl font-bold animate-rise">Payment complete</h1>
+        <h1 className="font-display text-4xl font-bold animate-rise">{t('checkout.paymentComplete')}</h1>
         <div className="card p-8 w-[440px] space-y-3 text-lg animate-rise">
-          <Row label="Total" value={money(paid.total)} />
+          <Row label={t('checkout.total')} value={money(paid.total)} />
           {paid.payments.map((p) => (
-            <Row key={p.id} label={p.method === 'card' ? 'Paid by card' : 'Paid in cash'} value={money(p.amount)} muted />
+            <Row key={p.id} label={p.method === 'card' ? t('checkout.paidByCard') : t('checkout.paidInCash')} value={money(p.amount)} muted />
           ))}
           <div className="h-px bg-line my-1" />
-          <Row label="Change due" value={money(paid.change_due)} big accent />
+          <Row label={t('checkout.changeDue')} value={money(paid.change_due)} big accent />
         </div>
         <div className="flex gap-3">
           <button className="btn-ghost" onClick={print}>
-            <IconPrint width={20} height={20} /> Print receipt
+            <IconPrint width={20} height={20} /> {t('checkout.printReceipt')}
           </button>
-          <button className="btn-accent" onClick={() => navigate('/')}>Done</button>
+          <button className="btn-accent" onClick={() => navigate('/')}>{t('checkout.done')}</button>
         </div>
       </div>
     )
@@ -121,7 +123,7 @@ export default function Checkout() {
             <IconBack width={22} height={22} />
           </button>
           <h1 className="font-display text-3xl font-bold">
-            Checkout{order.table_label ? ` · Table ${order.table_label}` : ''}
+            {order.table_label ? t('checkout.checkoutTable', { label: order.table_label }) : t('checkout.title')}
           </h1>
         </div>
 
@@ -140,7 +142,7 @@ export default function Checkout() {
 
         {/* discount control */}
         <div className="mt-4 flex items-center gap-2">
-          <span className="text-muted text-sm mr-1">Discount</span>
+          <span className="text-muted text-sm mr-1">{t('checkout.discount')}</span>
           {DISCOUNTS.map((d) => (
             <button
               key={d}
@@ -151,23 +153,23 @@ export default function Checkout() {
                   : 'bg-surface2 border-line text-muted hover:text-cream'
               }`}
             >
-              {d === 0 ? 'None' : `${d}%`}
+              {d === 0 ? t('common.none') : `${d}%`}
             </button>
           ))}
           <button className="px-4 py-2 rounded-xl text-sm font-semibold bg-surface2 border border-line text-muted hover:text-cream" onClick={() => setDiscountModal(true)}>
-            Custom
+            {t('checkout.custom')}
           </button>
         </div>
 
         <div className="mt-4 space-y-1.5">
           {order.discount > 0 && (
             <>
-              <Row label="Subtotal" value={money(order.subtotal)} muted />
-              <Row label="Discount" value={`- ${money(order.discount)}`} discount />
+              <Row label={t('checkout.subtotal')} value={money(order.subtotal)} muted />
+              <Row label={t('checkout.discount')} value={`- ${money(order.discount)}`} discount />
             </>
           )}
           <div className="flex justify-between items-baseline">
-            <span className="text-xl">Total</span>
+            <span className="text-xl">{t('checkout.total')}</span>
             <span className="font-display text-4xl font-bold text-ember tnum">{money(order.total)}</span>
           </div>
         </div>
@@ -178,17 +180,17 @@ export default function Checkout() {
         {/* tendered / change-or-remaining (live as you type) */}
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-2xl bg-surface2 border border-line p-3 text-center">
-            <div className="text-muted text-xs">Tendered</div>
+            <div className="text-muted text-xs">{t('checkout.tendered')}</div>
             <div className="font-display text-2xl font-bold tnum">{money(projectedPaid)}</div>
           </div>
           {remaining > 0 ? (
             <div className="rounded-2xl bg-surface2 border border-line p-3 text-center">
-              <div className="text-muted text-xs">Remaining</div>
+              <div className="text-muted text-xs">{t('checkout.remaining')}</div>
               <div className="font-display text-2xl font-bold tnum text-ember">{money(remaining)}</div>
             </div>
           ) : (
             <div className="rounded-2xl bg-mint/15 border border-mint/40 p-3 text-center">
-              <div className="text-mint/80 text-xs">Change to return</div>
+              <div className="text-mint/80 text-xs">{t('checkout.changeReturn')}</div>
               <div className="font-display text-2xl font-bold tnum text-mint">{money(change)}</div>
             </div>
           )}
@@ -199,7 +201,7 @@ export default function Checkout() {
           <div className="space-y-1.5">
             {order.payments.map((p) => (
               <div key={p.id} className="flex items-center justify-between rounded-xl bg-surface2/70 border border-line px-3 py-2 animate-pop">
-                <span className="chip bg-surface3 text-cream">{p.method === 'card' ? 'Card' : 'Cash'}</span>
+                <span className="chip bg-surface3 text-cream">{p.method === 'card' ? t('checkout.card') : t('checkout.cash')}</span>
                 <span className="tnum font-semibold">{money(p.amount)}</span>
                 <button className="text-muted hover:text-berry" onClick={() => removePayment(p.id)}>
                   <IconTrash width={18} height={18} />
@@ -215,23 +217,23 @@ export default function Checkout() {
             <button
               key={m}
               onClick={() => setMethod(m)}
-              className={`py-2.5 rounded-xl font-semibold capitalize border transition ${
+              className={`py-2.5 rounded-xl font-semibold border transition ${
                 method === m ? 'bg-ember text-[#2a1c0c] border-ember' : 'bg-surface2 border-line text-muted'
               }`}
             >
-              {m}
+              {t('checkout.' + m)}
             </button>
           ))}
         </div>
 
         {/* amount display */}
         <div className="rounded-2xl bg-surface2 border border-line px-4 py-3">
-          <div className="text-muted text-xs">Amount tendered</div>
+          <div className="text-muted text-xs">{t('checkout.amountTendered')}</div>
           <div className="font-display text-3xl font-bold tnum">{amountStr || '0'}</div>
         </div>
 
         <div className="grid grid-cols-5 gap-2">
-          <button onClick={setExact} className="py-2.5 rounded-xl bg-surface3 text-cream text-sm font-semibold active:scale-95">Exact</button>
+          <button onClick={setExact} className="py-2.5 rounded-xl bg-surface3 text-cream text-sm font-semibold active:scale-95">{t('checkout.exact')}</button>
           {QUICK_UNITS.map((u) => (
             <button key={u} onClick={() => addQuick(u)} className="py-2.5 rounded-xl bg-surface2 border border-line text-sm font-semibold active:scale-95 tnum">
               +{u}
@@ -242,10 +244,16 @@ export default function Checkout() {
         <NumberPad value={amountStr} onChange={setAmountStr} />
 
         <button className="btn-ghost" disabled={amount <= 0} onClick={addPayment}>
-          Add {method} payment
+          {t('checkout.addPayment', { method: t('checkout.' + method) })}
         </button>
         <button className="btn-green text-2xl py-4" disabled={!canComplete || busy} onClick={complete}>
-          {busy ? 'Processing…' : !canComplete ? `${money(remaining)} left` : change > 0 ? `Complete · return ${money(change)}` : 'Complete sale'}
+          {busy
+            ? t('checkout.processing')
+            : !canComplete
+              ? t('checkout.left', { amount: money(remaining) })
+              : change > 0
+                ? t('checkout.completeReturn', { amount: money(change) })
+                : t('checkout.complete')}
         </button>
       </div>
 
@@ -257,14 +265,15 @@ export default function Checkout() {
 function DiscountModal({ subtotal, onClose, onApply }) {
   const [type, setType] = useState('percent')
   const [val, setVal] = useState('')
+  const { t } = useT()
   return (
-    <Modal title="Custom discount" onClose={onClose} width={420}>
+    <Modal title={t('checkout.customDiscount')} onClose={onClose} width={420}>
       <div className="grid grid-cols-2 gap-2">
-        {[['percent', 'Percentage'], ['amount', 'Fixed amount']].map(([t, label]) => (
+        {[['percent', t('checkout.percentage')], ['amount', t('checkout.fixedAmount')]].map(([k, label]) => (
           <button
-            key={t}
-            onClick={() => setType(t)}
-            className={`py-2.5 rounded-xl font-semibold border transition ${type === t ? 'bg-ember text-[#2a1c0c] border-ember' : 'bg-surface2 border-line text-muted'}`}
+            key={k}
+            onClick={() => setType(k)}
+            className={`py-2.5 rounded-xl font-semibold border transition ${type === k ? 'bg-ember text-[#2a1c0c] border-ember' : 'bg-surface2 border-line text-muted'}`}
           >
             {label}
           </button>
@@ -274,18 +283,18 @@ function DiscountModal({ subtotal, onClose, onApply }) {
         className="input tnum"
         inputMode="decimal"
         autoFocus
-        placeholder={type === 'percent' ? '% off (0-100)' : 'amount off'}
+        placeholder={type === 'percent' ? t('checkout.percentPh') : t('checkout.amountPh')}
         value={val}
         onChange={(e) => setVal(e.target.value)}
       />
-      <p className="text-muted text-sm">Subtotal: {money(subtotal)}</p>
+      <p className="text-muted text-sm">{t('checkout.subtotal')}: {money(subtotal)}</p>
       <div className="flex gap-3">
-        <button className="btn-ghost flex-1" onClick={onClose}>Cancel</button>
+        <button className="btn-ghost flex-1" onClick={onClose}>{t('common.cancel')}</button>
         <button
           className="btn-accent flex-1"
           onClick={() => onApply(type, type === 'percent' ? Number(val) : unitsToMillis(val))}
         >
-          Apply
+          {t('checkout.apply')}
         </button>
       </div>
     </Modal>

@@ -34,12 +34,13 @@ export const locales = {
       itemTotal: 'Item total', noOptionsInGroup: 'No options in this group.', badgeOut: 'OUT', badgeLow: 'LOW'
     },
     checkout: {
-      title: 'Checkout', tendered: 'Tendered', remaining: 'Remaining', changeReturn: 'Change to return',
+      title: 'Checkout', total: 'Total', tendered: 'Tendered', remaining: 'Remaining', changeReturn: 'Change to return',
       amountTendered: 'Amount tendered', exact: 'Exact', addPayment: 'Add {method} payment', cash: 'Cash', card: 'Card',
       complete: 'Complete sale', completeReturn: 'Complete · return {amount}', processing: 'Processing…', left: '{amount} left',
       discount: 'Discount', custom: 'Custom', subtotal: 'Subtotal', paymentComplete: 'Payment complete', changeDue: 'Change due',
       paidByCard: 'Paid by card', paidInCash: 'Paid in cash', done: 'Done', printReceipt: 'Print receipt', cannotComplete: 'Cannot complete sale',
-      customDiscount: 'Custom discount', percentage: 'Percentage', fixedAmount: 'Fixed amount', apply: 'Apply', printFailed: 'Print failed'
+      customDiscount: 'Custom discount', percentage: 'Percentage', fixedAmount: 'Fixed amount', apply: 'Apply', printFailed: 'Print failed',
+      percentPh: '% off (0-100)', amountPh: 'amount off', checkoutTable: 'Checkout · Table {label}'
     },
     products: {
       title: 'Menu', count: '{n} products', categories: 'Categories', allProducts: 'All products · {n}', addProduct: 'Add product',
@@ -128,12 +129,13 @@ export const locales = {
       itemTotal: 'Total article', noOptionsInGroup: 'Aucune option dans ce groupe.', badgeOut: 'RUPT', badgeLow: 'BAS'
     },
     checkout: {
-      title: 'Encaissement', tendered: 'Remis', remaining: 'Restant', changeReturn: 'Monnaie à rendre',
+      title: 'Encaissement', total: 'Total', tendered: 'Remis', remaining: 'Restant', changeReturn: 'Monnaie à rendre',
       amountTendered: 'Montant remis', exact: 'Exact', addPayment: 'Ajouter paiement {method}', cash: 'Espèces', card: 'Carte',
       complete: 'Terminer la vente', completeReturn: 'Terminer · rendre {amount}', processing: 'Traitement…', left: 'reste {amount}',
       discount: 'Remise', custom: 'Personnalisé', subtotal: 'Sous-total', paymentComplete: 'Paiement terminé', changeDue: 'Monnaie à rendre',
       paidByCard: 'Payé par carte', paidInCash: 'Payé en espèces', done: 'Terminé', printReceipt: 'Imprimer le reçu', cannotComplete: 'Vente impossible',
-      customDiscount: 'Remise personnalisée', percentage: 'Pourcentage', fixedAmount: 'Montant fixe', apply: 'Appliquer', printFailed: 'Échec de l’impression'
+      customDiscount: 'Remise personnalisée', percentage: 'Pourcentage', fixedAmount: 'Montant fixe', apply: 'Appliquer', printFailed: 'Échec de l’impression',
+      percentPh: '% de remise (0-100)', amountPh: 'montant de remise', checkoutTable: 'Encaissement · Table {label}'
     },
     products: {
       title: 'Menu', count: '{n} produits', categories: 'Catégories', allProducts: 'Tous les produits · {n}', addProduct: 'Ajouter un produit',
@@ -222,12 +224,13 @@ export const locales = {
       itemTotal: 'إجمالي العنصر', noOptionsInGroup: 'لا توجد خيارات في هذه المجموعة.', badgeOut: 'نفد', badgeLow: 'منخفض'
     },
     checkout: {
-      title: 'الدفع', tendered: 'المدفوع', remaining: 'المتبقّي', changeReturn: 'الباقي',
+      title: 'الدفع', total: 'الإجمالي', tendered: 'المدفوع', remaining: 'المتبقّي', changeReturn: 'الباقي',
       amountTendered: 'المبلغ المدفوع', exact: 'بالضبط', addPayment: 'إضافة دفعة {method}', cash: 'نقدًا', card: 'بطاقة',
       complete: 'إتمام البيع', completeReturn: 'إتمام · أرجِع {amount}', processing: 'جارٍ المعالجة…', left: 'تبقّى {amount}',
       discount: 'خصم', custom: 'مخصّص', subtotal: 'المجموع الفرعي', paymentComplete: 'تم الدفع', changeDue: 'الباقي',
       paidByCard: 'مدفوع بالبطاقة', paidInCash: 'مدفوع نقدًا', done: 'تم', printReceipt: 'طباعة الإيصال', cannotComplete: 'تعذّر إتمام البيع',
-      customDiscount: 'خصم مخصّص', percentage: 'نسبة مئوية', fixedAmount: 'مبلغ ثابت', apply: 'تطبيق', printFailed: 'فشلت الطباعة'
+      customDiscount: 'خصم مخصّص', percentage: 'نسبة مئوية', fixedAmount: 'مبلغ ثابت', apply: 'تطبيق', printFailed: 'فشلت الطباعة',
+      percentPh: '٪ الخصم (0-100)', amountPh: 'مبلغ الخصم', checkoutTable: 'الدفع · طاولة {label}'
     },
     products: {
       title: 'القائمة', count: '{n} منتجات', categories: 'الفئات', allProducts: 'كل المنتجات · {n}', addProduct: 'إضافة منتج',
