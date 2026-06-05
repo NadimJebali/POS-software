@@ -1,9 +1,11 @@
 import { money } from '../lib/settings'
+import { useT } from '../lib/i18n'
 
 // A tappable product tile for the order-taking grid: a prominent image (or a letter
 // placeholder when none), then name, price and live remaining-stock — with low/out
 // styling and an OUT/LOW corner badge. `remaining` is the units still addable.
 export default function ProductCard({ product, remaining, threshold, index = 0, onAdd }) {
+  const { t } = useT()
   const out = remaining <= 0
   const low = !out && remaining <= threshold
   return (
@@ -25,7 +27,7 @@ export default function ProductCard({ product, remaining, threshold, index = 0, 
             out ? 'bg-berry text-white' : 'bg-ember text-[#2a1c0c]'
           }`}
         >
-          {out ? 'OUT' : 'LOW'}
+          {out ? t('order.badgeOut') : t('order.badgeLow')}
         </span>
       )}
       <div className="h-36 w-full shrink-0 bg-surface2 flex items-center justify-center overflow-hidden">
@@ -38,12 +40,12 @@ export default function ProductCard({ product, remaining, threshold, index = 0, 
       <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
         <span className="text-base font-semibold leading-tight line-clamp-2 text-cream">
           {product.name}
-          {product.modifier_count > 0 && <span className="text-[10px] text-muted font-normal ml-1">• options</span>}
+          {product.modifier_count > 0 && <span className="text-[10px] text-muted font-normal ml-1">• {t('order.options')}</span>}
         </span>
         <span className="flex items-center justify-between gap-2 mt-1">
           <span className="text-ember font-display font-bold text-lg tnum">{money(product.price)}</span>
           <span className={`text-[11px] font-semibold tnum ${out ? 'text-berry' : low ? 'text-ember' : 'text-muted'}`}>
-            {out ? 'out' : `${remaining} left`}
+            {out ? t('order.out') : t('order.left', { n: remaining })}
           </span>
         </span>
       </div>

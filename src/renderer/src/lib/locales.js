@@ -31,7 +31,7 @@ export const locales = {
       cancelConfirm: 'Cancel order', notEnoughStock: 'Not enough stock', lastOne: '{name} — that was the last one in stock',
       runningLow: '{name} running low — {n} left', noBarcode: 'No product for barcode {code}', chooseOptions: 'Choose options',
       chooseAny: 'choose any', chooseOne: 'choose one', addToOrder: 'Add to order', selectRequired: 'Select required options',
-      itemTotal: 'Item total', noOptionsInGroup: 'No options in this group.'
+      itemTotal: 'Item total', noOptionsInGroup: 'No options in this group.', badgeOut: 'OUT', badgeLow: 'LOW'
     },
     checkout: {
       title: 'Checkout', tendered: 'Tendered', remaining: 'Remaining', changeReturn: 'Change to return',
@@ -125,7 +125,7 @@ export const locales = {
       cancelConfirm: 'Annuler la commande', notEnoughStock: 'Stock insuffisant', lastOne: '{name} — c’était le dernier en stock',
       runningLow: '{name} bientôt épuisé — reste {n}', noBarcode: 'Aucun produit pour le code-barres {code}', chooseOptions: 'Choisir les options',
       chooseAny: 'plusieurs choix', chooseOne: 'un choix', addToOrder: 'Ajouter à la commande', selectRequired: 'Sélectionnez les options requises',
-      itemTotal: 'Total article', noOptionsInGroup: 'Aucune option dans ce groupe.'
+      itemTotal: 'Total article', noOptionsInGroup: 'Aucune option dans ce groupe.', badgeOut: 'RUPT', badgeLow: 'BAS'
     },
     checkout: {
       title: 'Encaissement', tendered: 'Remis', remaining: 'Restant', changeReturn: 'Monnaie à rendre',
@@ -219,7 +219,7 @@ export const locales = {
       cancelConfirm: 'إلغاء الطلب', notEnoughStock: 'المخزون غير كافٍ', lastOne: '{name} — كانت آخر قطعة في المخزون',
       runningLow: '{name} يكاد ينفد — تبقّى {n}', noBarcode: 'لا يوجد منتج للباركود {code}', chooseOptions: 'اختر الخيارات',
       chooseAny: 'اختر أيًّا', chooseOne: 'اختر واحدًا', addToOrder: 'أضف إلى الطلب', selectRequired: 'اختر الخيارات المطلوبة',
-      itemTotal: 'إجمالي العنصر', noOptionsInGroup: 'لا توجد خيارات في هذه المجموعة.'
+      itemTotal: 'إجمالي العنصر', noOptionsInGroup: 'لا توجد خيارات في هذه المجموعة.', badgeOut: 'نفد', badgeLow: 'منخفض'
     },
     checkout: {
       title: 'الدفع', tendered: 'المدفوع', remaining: 'المتبقّي', changeReturn: 'الباقي',
