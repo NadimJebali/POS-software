@@ -5,7 +5,8 @@ export const locales = {
     common: {
       cancel: 'Cancel', save: 'Save', delete: 'Delete', close: 'Close', edit: 'Edit', add: 'Add',
       remove: 'Remove', back: 'Back', keep: 'Keep', confirm: 'Confirm', print: 'Print', upload: 'Upload',
-      active: 'Active', hidden: 'Hidden', none: 'None', loading: 'Loading…', signOut: 'Sign out'
+      active: 'Active', hidden: 'Hidden', none: 'None', loading: 'Loading…', signOut: 'Sign out',
+      required: 'required', error: 'Error', discard: 'Discard'
     },
     nav: {
       floor: 'Floor', menu: 'Menu', tables: 'Tables', history: 'History', analytics: 'Analytics',
@@ -30,7 +31,7 @@ export const locales = {
       cancelConfirm: 'Cancel order', notEnoughStock: 'Not enough stock', lastOne: '{name} — that was the last one in stock',
       runningLow: '{name} running low — {n} left', noBarcode: 'No product for barcode {code}', chooseOptions: 'Choose options',
       chooseAny: 'choose any', chooseOne: 'choose one', addToOrder: 'Add to order', selectRequired: 'Select required options',
-      itemTotal: 'Item total'
+      itemTotal: 'Item total', noOptionsInGroup: 'No options in this group.'
     },
     checkout: {
       title: 'Checkout', tendered: 'Tendered', remaining: 'Remaining', changeReturn: 'Change to return',
@@ -38,7 +39,50 @@ export const locales = {
       complete: 'Complete sale', completeReturn: 'Complete · return {amount}', processing: 'Processing…', left: '{amount} left',
       discount: 'Discount', custom: 'Custom', subtotal: 'Subtotal', paymentComplete: 'Payment complete', changeDue: 'Change due',
       paidByCard: 'Paid by card', paidInCash: 'Paid in cash', done: 'Done', printReceipt: 'Print receipt', cannotComplete: 'Cannot complete sale',
-      customDiscount: 'Custom discount', percentage: 'Percentage', fixedAmount: 'Fixed amount', apply: 'Apply'
+      customDiscount: 'Custom discount', percentage: 'Percentage', fixedAmount: 'Fixed amount', apply: 'Apply', printFailed: 'Print failed'
+    },
+    products: {
+      title: 'Menu', count: '{n} products', categories: 'Categories', allProducts: 'All products · {n}', addProduct: 'Add product',
+      category: 'Category', lowWarn: '{n} product(s) are low or out of stock (threshold {t})', name: 'Name', price: 'Price',
+      stockOnHand: 'Stock on hand', barcode: 'Barcode', scanOrType: 'scan or type', activeShown: 'Active (shown on order screen)',
+      image: 'Product image', noImage: 'No image', newProduct: 'New product', editProduct: 'Edit product', saveFirst: 'Save the product first to add size/extra options.',
+      outOfStock: 'Out of stock', inStock: '{n} in stock', left: '{n} left', status: 'Status', noProducts: 'No products yet.',
+      deleteTitle: 'Delete product', deleteMsg: 'Delete “{name}”?', newCategory: 'New category', editCategory: 'Edit category', color: 'Color',
+      deleteCatTitle: 'Delete category', deleteCatMsg: 'Delete category “{name}” and all its products?',
+      options: 'Options (sizes / extras)', addGroup: '+ Add group', noOptions: 'No options. Add a group like “Size” or “Extras”.',
+      groupName: 'Group name (e.g. Size)', requiredOpt: 'Required', allowMultiple: 'Allow multiple', multiple: 'multiple', pickOne: 'pick one',
+      optionName: 'Option name', addPricePh: '+ price', addGroupBtn: 'Add group', cols: { name: 'Name', category: 'Category', price: 'Price', stock: 'Stock', status: 'Status' }
+    },
+    tables: {
+      title: 'Tables', subtitle: '{n} table(s) · tap to manage', addTable: 'Add table', seats: '{n} seats', available: 'available',
+      occupied: 'occupied', openOrder: 'open order →', noTables: 'No tables yet. Add your first one.', edit: 'Edit',
+      deleteTitle: 'Delete table', deleteMsgOpen: 'Table {label} has an open order. Delete the table and discard that order?',
+      deleteMsg: 'Delete table {label}?', couldNotDelete: 'Could not delete table', couldNotSave: 'Could not save table',
+      newTable: 'New table', editTable: 'Edit table', numberRef: 'Number / reference', numberPh: 'e.g. 12 or Terrace-A', seatsLabel: 'Seats'
+    },
+    history: {
+      title: 'History', subtitle: '{n} order(s) · {total}', allTime: 'All time', noOrders: 'No orders for this period.',
+      deletedBy: 'deleted by {name}', deleteTitle: 'Delete order', deleteConfirm: 'Delete order',
+      deleteMsg: 'Delete this order? It stays in history marked as deleted, its stock is restored, and it no longer counts towards sales.',
+      receipt: 'Receipt', servedBy: 'Served by', deleted: 'Deleted', by: 'by', reprint: 'Re-print', printing: 'Printing…',
+      changeGiven: 'Change given', saveChanges: 'Save changes', noItems: 'No items recorded.', keepDisc: 'Keep', printFailed: 'Print failed',
+      cols: { order: 'Order', table: 'Table', server: 'Server', time: 'Time', items: 'Items', discount: 'Discount', total: 'Total', change: 'Change' }
+    },
+    analytics: {
+      title: 'Analytics', overview: 'Earnings overview', yourOverview: 'Your earnings overview',
+      daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly',
+      today: 'Today', thisWeek: 'This week', thisMonth: 'This month', thisYear: 'This year', allTime: 'All time', custom: 'Custom',
+      earnings: '{period} earnings', topProducts: 'Top products', noSales: 'No sales in this period.', sold: '{n} sold',
+      byServer: 'Sales by server · {period}', orders: '{n} order(s)', noData: 'No data yet.', exportPdf: 'Export PDF', exporting: 'Exporting…',
+      reportSaved: 'Report saved', exportFailed: 'Export failed', exportTitle: 'Export report', exportSubtitle: 'Choose what goes in the PDF',
+      dateRange: 'Date range', from: 'From', to: 'To', staff: 'Staff', allStaff: 'All staff', sections: 'Sections to include',
+      secSummary: 'Summary', secTrend: 'Sales trend', secTop: 'Top products', secServer: 'Sales by server', secPayments: 'Payments'
+    },
+    users: {
+      title: 'Users', subtitle: '{n} user(s)', addUser: 'Add user', newUser: 'New user', editUser: 'Edit user',
+      username: 'Username', name: 'Display name', pin: 'PIN', role: 'Role', admin: 'Administrator', cashier: 'Cashier',
+      active: 'Active', inactive: 'Inactive', deleteTitle: 'Delete user', deleteMsg: 'Delete “{name}”?',
+      cols: { user: 'User', name: 'Name', role: 'Role', status: 'Status', created: 'Created' }, pinHint: 'Leave blank to keep the current PIN'
     },
     settings: {
       title: 'Setup', subtitle: 'Shop, receipt, currency & printer', saved: 'Saved ✓', saveChanges: 'Save changes',
@@ -55,7 +99,8 @@ export const locales = {
     common: {
       cancel: 'Annuler', save: 'Enregistrer', delete: 'Supprimer', close: 'Fermer', edit: 'Modifier', add: 'Ajouter',
       remove: 'Retirer', back: 'Retour', keep: 'Garder', confirm: 'Confirmer', print: 'Imprimer', upload: 'Téléverser',
-      active: 'Actif', hidden: 'Masqué', none: 'Aucun', loading: 'Chargement…', signOut: 'Se déconnecter'
+      active: 'Actif', hidden: 'Masqué', none: 'Aucun', loading: 'Chargement…', signOut: 'Se déconnecter',
+      required: 'requis', error: 'Erreur', discard: 'Annuler'
     },
     nav: {
       floor: 'Salle', menu: 'Menu', tables: 'Tables', history: 'Historique', analytics: 'Statistiques',
@@ -80,7 +125,7 @@ export const locales = {
       cancelConfirm: 'Annuler la commande', notEnoughStock: 'Stock insuffisant', lastOne: '{name} — c’était le dernier en stock',
       runningLow: '{name} bientôt épuisé — reste {n}', noBarcode: 'Aucun produit pour le code-barres {code}', chooseOptions: 'Choisir les options',
       chooseAny: 'plusieurs choix', chooseOne: 'un choix', addToOrder: 'Ajouter à la commande', selectRequired: 'Sélectionnez les options requises',
-      itemTotal: 'Total article'
+      itemTotal: 'Total article', noOptionsInGroup: 'Aucune option dans ce groupe.'
     },
     checkout: {
       title: 'Encaissement', tendered: 'Remis', remaining: 'Restant', changeReturn: 'Monnaie à rendre',
@@ -88,7 +133,50 @@ export const locales = {
       complete: 'Terminer la vente', completeReturn: 'Terminer · rendre {amount}', processing: 'Traitement…', left: 'reste {amount}',
       discount: 'Remise', custom: 'Personnalisé', subtotal: 'Sous-total', paymentComplete: 'Paiement terminé', changeDue: 'Monnaie à rendre',
       paidByCard: 'Payé par carte', paidInCash: 'Payé en espèces', done: 'Terminé', printReceipt: 'Imprimer le reçu', cannotComplete: 'Vente impossible',
-      customDiscount: 'Remise personnalisée', percentage: 'Pourcentage', fixedAmount: 'Montant fixe', apply: 'Appliquer'
+      customDiscount: 'Remise personnalisée', percentage: 'Pourcentage', fixedAmount: 'Montant fixe', apply: 'Appliquer', printFailed: 'Échec de l’impression'
+    },
+    products: {
+      title: 'Menu', count: '{n} produits', categories: 'Catégories', allProducts: 'Tous les produits · {n}', addProduct: 'Ajouter un produit',
+      category: 'Catégorie', lowWarn: '{n} produit(s) en stock bas ou épuisé(s) (seuil {t})', name: 'Nom', price: 'Prix',
+      stockOnHand: 'Stock disponible', barcode: 'Code-barres', scanOrType: 'scanner ou saisir', activeShown: 'Actif (visible à la commande)',
+      image: 'Image du produit', noImage: 'Aucune image', newProduct: 'Nouveau produit', editProduct: 'Modifier le produit', saveFirst: 'Enregistrez d’abord le produit pour ajouter des options.',
+      outOfStock: 'En rupture', inStock: '{n} en stock', left: 'reste {n}', status: 'Statut', noProducts: 'Aucun produit.',
+      deleteTitle: 'Supprimer le produit', deleteMsg: 'Supprimer « {name} » ?', newCategory: 'Nouvelle catégorie', editCategory: 'Modifier la catégorie', color: 'Couleur',
+      deleteCatTitle: 'Supprimer la catégorie', deleteCatMsg: 'Supprimer la catégorie « {name} » et tous ses produits ?',
+      options: 'Options (tailles / extras)', addGroup: '+ Ajouter un groupe', noOptions: 'Aucune option. Ajoutez un groupe comme « Taille ».',
+      groupName: 'Nom du groupe (ex. Taille)', requiredOpt: 'Requis', allowMultiple: 'Choix multiple', multiple: 'multiple', pickOne: 'un choix',
+      optionName: 'Nom de l’option', addPricePh: '+ prix', addGroupBtn: 'Ajouter', cols: { name: 'Nom', category: 'Catégorie', price: 'Prix', stock: 'Stock', status: 'Statut' }
+    },
+    tables: {
+      title: 'Tables', subtitle: '{n} table(s) · touchez pour gérer', addTable: 'Ajouter une table', seats: '{n} places', available: 'disponible',
+      occupied: 'occupée', openOrder: 'ouvrir la commande →', noTables: 'Aucune table. Ajoutez la première.', edit: 'Modifier',
+      deleteTitle: 'Supprimer la table', deleteMsgOpen: 'La table {label} a une commande ouverte. Supprimer la table et annuler la commande ?',
+      deleteMsg: 'Supprimer la table {label} ?', couldNotDelete: 'Impossible de supprimer la table', couldNotSave: 'Impossible d’enregistrer la table',
+      newTable: 'Nouvelle table', editTable: 'Modifier la table', numberRef: 'Numéro / référence', numberPh: 'ex. 12 ou Terrasse-A', seatsLabel: 'Places'
+    },
+    history: {
+      title: 'Historique', subtitle: '{n} commande(s) · {total}', allTime: 'Tout', noOrders: 'Aucune commande pour cette période.',
+      deletedBy: 'supprimée par {name}', deleteTitle: 'Supprimer la commande', deleteConfirm: 'Supprimer',
+      deleteMsg: 'Supprimer cette commande ? Elle reste dans l’historique marquée comme supprimée, son stock est restauré et elle ne compte plus dans les ventes.',
+      receipt: 'Reçu', servedBy: 'Servi par', deleted: 'Supprimée', by: 'par', reprint: 'Réimprimer', printing: 'Impression…',
+      changeGiven: 'Monnaie rendue', saveChanges: 'Enregistrer', noItems: 'Aucun article enregistré.', keepDisc: 'Garder', printFailed: 'Échec de l’impression',
+      cols: { order: 'Commande', table: 'Table', server: 'Serveur', time: 'Heure', items: 'Articles', discount: 'Remise', total: 'Total', change: 'Monnaie' }
+    },
+    analytics: {
+      title: 'Statistiques', overview: 'Aperçu des revenus', yourOverview: 'Vos revenus',
+      daily: 'Jour', weekly: 'Semaine', monthly: 'Mois', yearly: 'Année',
+      today: 'Aujourd’hui', thisWeek: 'Cette semaine', thisMonth: 'Ce mois', thisYear: 'Cette année', allTime: 'Tout', custom: 'Personnalisé',
+      earnings: 'Revenus — {period}', topProducts: 'Meilleurs produits', noSales: 'Aucune vente sur cette période.', sold: '{n} vendus',
+      byServer: 'Ventes par serveur · {period}', orders: '{n} commande(s)', noData: 'Pas encore de données.', exportPdf: 'Exporter PDF', exporting: 'Export…',
+      reportSaved: 'Rapport enregistré', exportFailed: 'Échec de l’export', exportTitle: 'Exporter le rapport', exportSubtitle: 'Choisissez le contenu du PDF',
+      dateRange: 'Période', from: 'Du', to: 'Au', staff: 'Personnel', allStaff: 'Tout le personnel', sections: 'Sections à inclure',
+      secSummary: 'Résumé', secTrend: 'Tendance des ventes', secTop: 'Meilleurs produits', secServer: 'Ventes par serveur', secPayments: 'Paiements'
+    },
+    users: {
+      title: 'Utilisateurs', subtitle: '{n} utilisateur(s)', addUser: 'Ajouter', newUser: 'Nouvel utilisateur', editUser: 'Modifier l’utilisateur',
+      username: 'Identifiant', name: 'Nom affiché', pin: 'Code PIN', role: 'Rôle', admin: 'Administrateur', cashier: 'Caissier',
+      active: 'Actif', inactive: 'Inactif', deleteTitle: 'Supprimer l’utilisateur', deleteMsg: 'Supprimer « {name} » ?',
+      cols: { user: 'Utilisateur', name: 'Nom', role: 'Rôle', status: 'Statut', created: 'Créé le' }, pinHint: 'Laissez vide pour garder le PIN actuel'
     },
     settings: {
       title: 'Réglages', subtitle: 'Boutique, reçu, devise et imprimante', saved: 'Enregistré ✓', saveChanges: 'Enregistrer',
@@ -105,14 +193,15 @@ export const locales = {
     common: {
       cancel: 'إلغاء', save: 'حفظ', delete: 'حذف', close: 'إغلاق', edit: 'تعديل', add: 'إضافة',
       remove: 'إزالة', back: 'رجوع', keep: 'إبقاء', confirm: 'تأكيد', print: 'طباعة', upload: 'رفع',
-      active: 'مفعّل', hidden: 'مخفي', none: 'بدون', loading: 'جارٍ التحميل…', signOut: 'تسجيل الخروج'
+      active: 'مفعّل', hidden: 'مخفي', none: 'بدون', loading: 'جارٍ التحميل…', signOut: 'تسجيل الخروج',
+      required: 'إلزامي', error: 'خطأ', discard: 'تجاهل'
     },
     nav: {
       floor: 'القاعة', menu: 'القائمة', tables: 'الطاولات', history: 'السجل', analytics: 'الإحصائيات',
       setup: 'الإعدادات', users: 'المستخدمون', trialLeft: 'تجربة — تبقّى {n} يوم', activateHint: 'فعّل من الإعدادات ← الترخيص'
     },
     login: {
-      title: 'اختر حسابك لتسجيل الدخول', pickAccount: 'اختر حسابًا من اليسار ثم أدخل الرمز السري.',
+      title: 'اختر حسابك لتسجيل الدخول', pickAccount: 'اختر حسابًا من اليمين ثم أدخل الرمز السري.',
       enterPinFor: 'أدخل الرمز السري لـ', signIn: 'تسجيل الدخول', signingIn: 'جارٍ الدخول…', administrator: 'مدير',
       cashier: 'أمين صندوق', noUsers: 'لا يوجد مستخدمون.', tooMany: 'محاولات كثيرة', lockedTryAgain: 'مقفل — أعد المحاولة بعد {n} ثانية',
       locked: 'مقفل · {n} ثانية'
@@ -130,7 +219,7 @@ export const locales = {
       cancelConfirm: 'إلغاء الطلب', notEnoughStock: 'المخزون غير كافٍ', lastOne: '{name} — كانت آخر قطعة في المخزون',
       runningLow: '{name} يكاد ينفد — تبقّى {n}', noBarcode: 'لا يوجد منتج للباركود {code}', chooseOptions: 'اختر الخيارات',
       chooseAny: 'اختر أيًّا', chooseOne: 'اختر واحدًا', addToOrder: 'أضف إلى الطلب', selectRequired: 'اختر الخيارات المطلوبة',
-      itemTotal: 'إجمالي العنصر'
+      itemTotal: 'إجمالي العنصر', noOptionsInGroup: 'لا توجد خيارات في هذه المجموعة.'
     },
     checkout: {
       title: 'الدفع', tendered: 'المدفوع', remaining: 'المتبقّي', changeReturn: 'الباقي',
@@ -138,7 +227,50 @@ export const locales = {
       complete: 'إتمام البيع', completeReturn: 'إتمام · أرجِع {amount}', processing: 'جارٍ المعالجة…', left: 'تبقّى {amount}',
       discount: 'خصم', custom: 'مخصّص', subtotal: 'المجموع الفرعي', paymentComplete: 'تم الدفع', changeDue: 'الباقي',
       paidByCard: 'مدفوع بالبطاقة', paidInCash: 'مدفوع نقدًا', done: 'تم', printReceipt: 'طباعة الإيصال', cannotComplete: 'تعذّر إتمام البيع',
-      customDiscount: 'خصم مخصّص', percentage: 'نسبة مئوية', fixedAmount: 'مبلغ ثابت', apply: 'تطبيق'
+      customDiscount: 'خصم مخصّص', percentage: 'نسبة مئوية', fixedAmount: 'مبلغ ثابت', apply: 'تطبيق', printFailed: 'فشلت الطباعة'
+    },
+    products: {
+      title: 'القائمة', count: '{n} منتجات', categories: 'الفئات', allProducts: 'كل المنتجات · {n}', addProduct: 'إضافة منتج',
+      category: 'الفئة', lowWarn: '{n} منتج بمخزون منخفض أو نافد (الحد {t})', name: 'الاسم', price: 'السعر',
+      stockOnHand: 'المخزون المتوفر', barcode: 'الباركود', scanOrType: 'امسح أو اكتب', activeShown: 'مفعّل (يظهر في شاشة الطلب)',
+      image: 'صورة المنتج', noImage: 'لا صورة', newProduct: 'منتج جديد', editProduct: 'تعديل المنتج', saveFirst: 'احفظ المنتج أولاً لإضافة الخيارات.',
+      outOfStock: 'نفد المخزون', inStock: '{n} في المخزون', left: 'تبقّى {n}', status: 'الحالة', noProducts: 'لا توجد منتجات.',
+      deleteTitle: 'حذف المنتج', deleteMsg: 'حذف « {name} »؟', newCategory: 'فئة جديدة', editCategory: 'تعديل الفئة', color: 'اللون',
+      deleteCatTitle: 'حذف الفئة', deleteCatMsg: 'حذف الفئة « {name} » وكل منتجاتها؟',
+      options: 'الخيارات (أحجام / إضافات)', addGroup: '+ إضافة مجموعة', noOptions: 'لا خيارات. أضف مجموعة مثل « الحجم ».',
+      groupName: 'اسم المجموعة (مثل الحجم)', requiredOpt: 'إلزامي', allowMultiple: 'اختيار متعدّد', multiple: 'متعدّد', pickOne: 'اختيار واحد',
+      optionName: 'اسم الخيار', addPricePh: '+ السعر', addGroupBtn: 'إضافة', cols: { name: 'الاسم', category: 'الفئة', price: 'السعر', stock: 'المخزون', status: 'الحالة' }
+    },
+    tables: {
+      title: 'الطاولات', subtitle: '{n} طاولة · اضغط للإدارة', addTable: 'إضافة طاولة', seats: '{n} مقاعد', available: 'متاحة',
+      occupied: 'مشغولة', openOrder: 'فتح الطلب ←', noTables: 'لا توجد طاولات. أضف أول واحدة.', edit: 'تعديل',
+      deleteTitle: 'حذف الطاولة', deleteMsgOpen: 'الطاولة {label} بها طلب مفتوح. حذف الطاولة وإلغاء الطلب؟',
+      deleteMsg: 'حذف الطاولة {label}؟', couldNotDelete: 'تعذّر حذف الطاولة', couldNotSave: 'تعذّر حفظ الطاولة',
+      newTable: 'طاولة جديدة', editTable: 'تعديل الطاولة', numberRef: 'الرقم / المرجع', numberPh: 'مثل 12 أو شرفة-أ', seatsLabel: 'المقاعد'
+    },
+    history: {
+      title: 'السجل', subtitle: '{n} طلب · {total}', allTime: 'كل الوقت', noOrders: 'لا توجد طلبات لهذه الفترة.',
+      deletedBy: 'حُذف بواسطة {name}', deleteTitle: 'حذف الطلب', deleteConfirm: 'حذف',
+      deleteMsg: 'حذف هذا الطلب؟ يبقى في السجل بعلامة محذوف، ويُعاد مخزونه، ولا يُحتسب ضمن المبيعات.',
+      receipt: 'إيصال', servedBy: 'قدّمه', deleted: 'محذوف', by: 'بواسطة', reprint: 'إعادة الطباعة', printing: 'جارٍ الطباعة…',
+      changeGiven: 'الباقي المُعاد', saveChanges: 'حفظ التغييرات', noItems: 'لا عناصر مسجّلة.', keepDisc: 'إبقاء', printFailed: 'فشلت الطباعة',
+      cols: { order: 'الطلب', table: 'الطاولة', server: 'الموظف', time: 'الوقت', items: 'العناصر', discount: 'الخصم', total: 'الإجمالي', change: 'الباقي' }
+    },
+    analytics: {
+      title: 'الإحصائيات', overview: 'نظرة على الأرباح', yourOverview: 'أرباحك',
+      daily: 'يومي', weekly: 'أسبوعي', monthly: 'شهري', yearly: 'سنوي',
+      today: 'اليوم', thisWeek: 'هذا الأسبوع', thisMonth: 'هذا الشهر', thisYear: 'هذه السنة', allTime: 'كل الوقت', custom: 'مخصّص',
+      earnings: 'الأرباح — {period}', topProducts: 'أفضل المنتجات', noSales: 'لا مبيعات في هذه الفترة.', sold: 'بيع {n}',
+      byServer: 'المبيعات حسب الموظف · {period}', orders: '{n} طلب', noData: 'لا توجد بيانات بعد.', exportPdf: 'تصدير PDF', exporting: 'جارٍ التصدير…',
+      reportSaved: 'تم حفظ التقرير', exportFailed: 'فشل التصدير', exportTitle: 'تصدير التقرير', exportSubtitle: 'اختر محتوى الملف',
+      dateRange: 'الفترة', from: 'من', to: 'إلى', staff: 'الموظف', allStaff: 'كل الموظفين', sections: 'الأقسام المضمّنة',
+      secSummary: 'ملخّص', secTrend: 'اتجاه المبيعات', secTop: 'أفضل المنتجات', secServer: 'المبيعات حسب الموظف', secPayments: 'المدفوعات'
+    },
+    users: {
+      title: 'المستخدمون', subtitle: '{n} مستخدم', addUser: 'إضافة', newUser: 'مستخدم جديد', editUser: 'تعديل المستخدم',
+      username: 'اسم المستخدم', name: 'الاسم المعروض', pin: 'الرمز السري', role: 'الدور', admin: 'مدير', cashier: 'أمين صندوق',
+      active: 'مفعّل', inactive: 'غير مفعّل', deleteTitle: 'حذف المستخدم', deleteMsg: 'حذف « {name} »؟',
+      cols: { user: 'المستخدم', name: 'الاسم', role: 'الدور', status: 'الحالة', created: 'أُنشئ في' }, pinHint: 'اتركه فارغًا للإبقاء على الرمز الحالي'
     },
     settings: {
       title: 'الإعدادات', subtitle: 'المتجر والإيصال والعملة والطابعة', saved: 'تم الحفظ ✓', saveChanges: 'حفظ التغييرات',

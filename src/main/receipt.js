@@ -1,4 +1,5 @@
 import { BrowserWindow } from 'electron'
+import { mt, isRtlLang } from './i18n'
 
 const esc = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
