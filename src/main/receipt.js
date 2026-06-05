@@ -15,6 +15,8 @@ function money(millis, s) {
 }
 
 function receiptHtml(order, s) {
+  const lang = s.language || 'en'
+  const dir = isRtlLang(lang) ? 'rtl' : 'ltr'
   const width = s.paper_width === '58' ? 210 : 280 // px render width per paper size
   const date = new Date((order.paid_at || '') + 'Z')
   const dateStr = isNaN(date) ? new Date().toLocaleString() : date.toLocaleString()
@@ -29,12 +31,12 @@ function receiptHtml(order, s) {
     .join('')
 
   const payments = (order.payments || [])
-    .map((p) => `<div class="line"><span>${esc(p.method === 'card' ? 'Card' : 'Cash')}</span><span>${money(p.amount, s)}</span></div>`)
+    .map((p) => `<div class="line"><span>${esc(p.method === 'card' ? mt(lang, 'receipt.card') : mt(lang, 'receipt.cash'))}</span><span>${money(p.amount, s)}</span></div>`)
     .join('')
 
   const logo = s.logo ? `<img src="${esc(s.logo)}" alt="" style="max-width:60%;max-height:80px;margin:0 auto 6px;display:block;" />` : ''
 
-  return `<!doctype html><html><head><meta charset="utf-8"><style>
+  return `<!doctype html><html lang="${lang}" dir="${dir}"><head><meta charset="utf-8"><style>
     * { box-sizing: border-box; }
     body { font-family: 'Cascadia Mono','Consolas','Courier New',monospace; width: ${width}px; margin: 0 auto; padding: 10px 6px; color:#000; }
     h1 { font-size: 18px; text-align:center; margin:0 0 2px; letter-spacing:.5px; }
@@ -53,16 +55,16 @@ function receiptHtml(order, s) {
     <h1>${esc(s.shop_name || 'Receipt')}</h1>
     <div class="sub">
       ${s.shop_address ? esc(s.shop_address) + '<br>' : ''}
-      ${s.shop_phone ? 'Tel: ' + esc(s.shop_phone) + '<br>' : ''}
-      ${order.table_label ? 'Table ' + esc(order.table_label) + ' · ' : ''}Order #${order.id}<br>${esc(dateStr)}
+      ${s.shop_phone ? mt(lang, 'receipt.tel') + ': ' + esc(s.shop_phone) + '<br>' : ''}
+      ${order.table_label ? mt(lang, 'receipt.table') + ' ' + esc(order.table_label) + ' · ' : ''}${mt(lang, 'receipt.order')} #${order.id}<br>${esc(dateStr)}
     </div>
     <hr>
     <table>${rows}</table>
     <hr>
-    ${order.discount > 0 ? `<div class="line"><span>Subtotal</span><span>${money(order.subtotal, s)}</span></div><div class="line"><span>Discount</span><span>-${money(order.discount, s)}</span></div>` : ''}
-    <div class="line tot"><span>TOTAL</span><span>${money(order.total, s)}</span></div>
+    ${order.discount > 0 ? `<div class="line"><span>${mt(lang, 'receipt.subtotal')}</span><span>${money(order.subtotal, s)}</span></div><div class="line"><span>${mt(lang, 'receipt.discount')}</span><span>-${money(order.discount, s)}</span></div>` : ''}
+    <div class="line tot"><span>${mt(lang, 'receipt.total')}</span><span>${money(order.total, s)}</span></div>
     ${payments}
-    ${order.change_due > 0 ? `<div class="line"><span>Change</span><span>${money(order.change_due, s)}</span></div>` : ''}
+    ${order.change_due > 0 ? `<div class="line"><span>${mt(lang, 'receipt.change')}</span><span>${money(order.change_due, s)}</span></div>` : ''}
     <div class="foot">${esc(s.receipt_footer || '')}</div>
   </body></html>`
 }

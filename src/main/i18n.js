@@ -8,7 +8,7 @@ const M = {
       revenue: 'Revenue', orders: 'Orders', avgOrder: 'Avg order', salesTrend: 'Sales trend — by {unit}', day: 'day', month: 'month',
       period: 'Period', topProducts: 'Top products', product: 'Product', qty: 'Qty', revenueCol: 'Revenue',
       salesByServer: 'Sales by server', server: 'Server', payments: 'Payments', method: 'Method', collected: 'Collected',
-      changeGiven: 'Change given', noSales: 'No sales in this range.', noData: 'No data.', allStaff: 'All staff', cash: 'Cash', card: 'Card', other: 'Other',
+      changeGiven: 'Change given', noSales: 'No sales in this range.', noPayments: 'No payments in this range.', noData: 'No data.', allStaff: 'All staff', cash: 'Cash', card: 'Card', other: 'Other',
       today: 'Today', thisWeek: 'This week', thisMonth: 'This month', thisYear: 'This year', allTime: 'All time'
     }
   },
@@ -19,7 +19,7 @@ const M = {
       revenue: 'Revenus', orders: 'Commandes', avgOrder: 'Panier moyen', salesTrend: 'Tendance des ventes — par {unit}', day: 'jour', month: 'mois',
       period: 'Période', topProducts: 'Meilleurs produits', product: 'Produit', qty: 'Qté', revenueCol: 'Revenus',
       salesByServer: 'Ventes par serveur', server: 'Serveur', payments: 'Paiements', method: 'Méthode', collected: 'Encaissé',
-      changeGiven: 'Monnaie rendue', noSales: 'Aucune vente sur cette période.', noData: 'Aucune donnée.', allStaff: 'Tout le personnel', cash: 'Espèces', card: 'Carte', other: 'Autre',
+      changeGiven: 'Monnaie rendue', noSales: 'Aucune vente sur cette période.', noPayments: 'Aucun paiement sur cette période.', noData: 'Aucune donnée.', allStaff: 'Tout le personnel', cash: 'Espèces', card: 'Carte', other: 'Autre',
       today: 'Aujourd’hui', thisWeek: 'Cette semaine', thisMonth: 'Ce mois', thisYear: 'Cette année', allTime: 'Tout'
     }
   },
@@ -30,7 +30,7 @@ const M = {
       revenue: 'الإيرادات', orders: 'الطلبات', avgOrder: 'متوسط الطلب', salesTrend: 'اتجاه المبيعات — حسب {unit}', day: 'يوم', month: 'شهر',
       period: 'الفترة', topProducts: 'أفضل المنتجات', product: 'المنتج', qty: 'الكمية', revenueCol: 'الإيرادات',
       salesByServer: 'المبيعات حسب الموظف', server: 'الموظف', payments: 'المدفوعات', method: 'الطريقة', collected: 'المحصّل',
-      changeGiven: 'الباقي المُعاد', noSales: 'لا مبيعات في هذه الفترة.', noData: 'لا بيانات.', allStaff: 'كل الموظفين', cash: 'نقدًا', card: 'بطاقة', other: 'أخرى',
+      changeGiven: 'الباقي المُعاد', noSales: 'لا مبيعات في هذه الفترة.', noPayments: 'لا مدفوعات في هذه الفترة.', noData: 'لا بيانات.', allStaff: 'كل الموظفين', cash: 'نقدًا', card: 'بطاقة', other: 'أخرى',
       today: 'اليوم', thisWeek: 'هذا الأسبوع', thisMonth: 'هذا الشهر', thisYear: 'هذه السنة', allTime: 'كل الوقت'
     }
   }

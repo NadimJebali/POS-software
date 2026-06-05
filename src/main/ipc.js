@@ -4,6 +4,7 @@ import { hashPin, verifyPin, needsRehash } from './auth-util'
 import { getStatus as licenseStatus, activate as licenseActivate } from './license'
 import { exportDatabase, importDatabase } from './backup'
 import { exportAnalyticsPdf } from './report'
+import { mt } from './i18n'
 
 // Channels callable without being signed in (licensing + the login flow itself).
 // Everything else requires an authenticated session — enforced in the dispatcher.
@@ -691,7 +692,9 @@ export function registerIpc(db) {
     // (from/to as YYYY-MM-DD, or null = all time), an optional staff filter, and
     // which sections to include. Scope is enforced here — non-admins are always
     // locked to their own sales regardless of any userId passed in.
-    'analytics:exportPdf': ({ from, to, userId, sections, rangeLabel }) => {
+    'analytics:exportPdf': ({ from, to, userId, sections, rangeLabel, rangeKey, lang }) => {
+      const settings = getSettings()
+      const reportLang = lang || settings.language || 'en'
       const scopedUserId = isAdmin()
         ? userId != null && userId !== '' ? Number(userId) : null
         : currentUser
@@ -750,14 +753,19 @@ export function registerIpc(db) {
       else if (scopedUserId != null) {
         const u = db.prepare('SELECT name, username FROM users WHERE id = ?').get(scopedUserId)
         scope = u ? u.name || u.username : 'Unknown'
-      } else scope = 'All staff'
+      } else scope = mt(reportLang, 'report.allStaff')
+
+      // Preset ranges arrive as a rangeKey we can localize here; custom ranges send
+      // a pre-formatted rangeLabel (a date span) from the renderer.
+      const resolvedRange = rangeKey ? mt(reportLang, `report.${rangeKey}`) : rangeLabel || mt(reportLang, 'report.allTime')
 
       const want = sections || {}
       return exportAnalyticsPdf({
-        shop: getSettings(),
+        shop: settings,
+        lang: reportLang,
         isAdmin: isAdmin(),
         scope,
-        rangeLabel: rangeLabel || 'All time',
+        rangeLabel: resolvedRange,
         sections: {
           summary: want.summary !== false,
           trend: want.trend !== false,
