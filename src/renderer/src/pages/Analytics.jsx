@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
 import { money } from '../lib/settings'
 import { useAuth } from '../lib/auth'
+import { useDialog } from '../components/Dialog'
 import PageHeader from '../components/PageHeader'
 
 const PERIODS = [
@@ -13,11 +14,25 @@ const PERIODS = [
 
 export default function Analytics() {
   const { isAdmin } = useAuth()
+  const { alert } = useDialog()
   const [overview, setOverview] = useState(null)
   const [period, setPeriod] = useState('daily')
   const [series, setSeries] = useState([])
   const [top, setTop] = useState([])
   const [servers, setServers] = useState([])
+  const [exporting, setExporting] = useState(false)
+
+  const exportPdf = async () => {
+    setExporting(true)
+    try {
+      const res = await api.analytics.exportPdf(period)
+      if (res?.ok) alert({ title: 'Report saved', message: res.path })
+    } catch (e) {
+      alert({ title: 'Export failed', message: e.message })
+    } finally {
+      setExporting(false)
+    }
+  }
 
   useEffect(() => {
     api.analytics.overview().then(setOverview)
@@ -37,7 +52,11 @@ export default function Analytics() {
 
   return (
     <div className="h-full flex flex-col p-7 overflow-y-auto">
-      <PageHeader title="Analytics" subtitle={isAdmin ? 'Earnings overview' : 'Your earnings overview'} />
+      <PageHeader title="Analytics" subtitle={isAdmin ? 'Earnings overview' : 'Your earnings overview'}>
+        <button className="btn-accent" disabled={exporting} onClick={exportPdf}>
+          {exporting ? 'Exporting…' : 'Export PDF'}
+        </button>
+      </PageHeader>
 
       <div className="grid grid-cols-4 gap-4 mb-6">
         {overview &&

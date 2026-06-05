@@ -3,6 +3,7 @@ import { printReceipt } from './receipt'
 import { hashPin, verifyPin, needsRehash } from './auth-util'
 import { getStatus as licenseStatus, activate as licenseActivate } from './license'
 import { exportDatabase, importDatabase } from './backup'
+import { exportAnalyticsPdf } from './report'
 
 // Channels callable without being signed in (licensing + the login flow itself).
 // Everything else requires an authenticated session — enforced in the dispatcher.
@@ -684,7 +685,26 @@ export function registerIpc(db) {
           `SELECT id, table_label, total, cash_received, change_due, paid_at
            FROM orders WHERE status = 'paid' AND ${ownOrders('orders')} ORDER BY paid_at DESC LIMIT 25`
         )
-        .all()
+        .all(),
+
+    // Export the analytics as a PDF, scoped exactly like the on-screen stats:
+    // a cashier gets their own numbers, an admin gets the whole shop.
+    'analytics:exportPdf': ({ period }) => {
+      const metricFor = { daily: 'today', weekly: 'week', monthly: 'month', yearly: 'year' }
+      const p = metricFor[period] ? period : 'daily'
+      const metric = metricFor[p]
+      return exportAnalyticsPdf({
+        shop: getSettings(),
+        isAdmin: isAdmin(),
+        scope: isAdmin() ? null : currentUser ? currentUser.name || currentUser.username : null,
+        period: p,
+        overview: handlers['analytics:overview'](),
+        series: handlers['analytics:series']({ period: p }),
+        top: handlers['analytics:topProducts']({ period: metric }),
+        byServer: isAdmin() ? handlers['analytics:byServer']({ period: metric }) : null,
+        generatedAt: new Date()
+      })
+    }
   }
 
   for (const [channel, fn] of Object.entries(handlers)) {
