@@ -1,21 +1,25 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
-import { money } from '../lib/settings'
+import { money, useSettings } from '../lib/settings'
 import { useAuth } from '../lib/auth'
+import { useT } from '../lib/i18n'
+import { LANGUAGES } from '../lib/locales'
 import { useDialog } from '../components/Dialog'
 import Modal from '../components/Modal'
 import PageHeader from '../components/PageHeader'
 
+// labelKey → period chart label; metricKey → the matching analytics.* range label.
 const PERIODS = [
-  { key: 'daily', label: 'Daily', metric: 'today', metricLabel: 'Today' },
-  { key: 'weekly', label: 'Weekly', metric: 'week', metricLabel: 'This week' },
-  { key: 'monthly', label: 'Monthly', metric: 'month', metricLabel: 'This month' },
-  { key: 'yearly', label: 'Yearly', metric: 'year', metricLabel: 'This year' }
+  { key: 'daily', metric: 'today', labelKey: 'daily', metricKey: 'today' },
+  { key: 'weekly', metric: 'week', labelKey: 'weekly', metricKey: 'thisWeek' },
+  { key: 'monthly', metric: 'month', labelKey: 'monthly', metricKey: 'thisMonth' },
+  { key: 'yearly', metric: 'year', labelKey: 'yearly', metricKey: 'thisYear' }
 ]
 
 export default function Analytics() {
   const { isAdmin } = useAuth()
   const { alert } = useDialog()
+  const { t } = useT()
   const [overview, setOverview] = useState(null)
   const [period, setPeriod] = useState('daily')
   const [series, setSeries] = useState([])
@@ -30,10 +34,10 @@ export default function Analytics() {
       const res = await api.analytics.exportPdf(params)
       if (res?.ok) {
         setShowExport(false)
-        alert({ title: 'Report saved', message: res.path })
+        alert({ title: t('analytics.reportSaved'), message: res.path })
       }
     } catch (e) {
-      alert({ title: 'Export failed', message: e.message })
+      alert({ title: t('analytics.exportFailed'), message: e.message })
     } finally {
       setExporting(false)
     }
@@ -57,8 +61,8 @@ export default function Analytics() {
 
   return (
     <div className="h-full flex flex-col p-7 overflow-y-auto">
-      <PageHeader title="Analytics" subtitle={isAdmin ? 'Earnings overview' : 'Your earnings overview'}>
-        <button className="btn-accent" onClick={() => setShowExport(true)}>Export PDF</button>
+      <PageHeader title={t('analytics.title')} subtitle={isAdmin ? t('analytics.overview') : t('analytics.yourOverview')}>
+        <button className="btn-accent" onClick={() => setShowExport(true)}>{t('analytics.exportPdf')}</button>
       </PageHeader>
 
       <div className="grid grid-cols-4 gap-4 mb-6">
@@ -71,9 +75,9 @@ export default function Analytics() {
                 onClick={() => setPeriod(p.key)}
                 className={`card p-5 text-left transition-all ${active ? 'border-ember/50 shadow-glow' : 'hover:bg-surface2'}`}
               >
-                <div className="text-muted text-sm">{p.metricLabel}</div>
+                <div className="text-muted text-sm">{t('analytics.' + p.metricKey)}</div>
                 <div className="font-display text-3xl font-bold text-ember mt-1 tnum">{money(overview[p.metric].total)}</div>
-                <div className="text-sm text-muted mt-1 tnum">{overview[p.metric].count} orders</div>
+                <div className="text-sm text-muted mt-1 tnum">{t('analytics.orders', { n: overview[p.metric].count })}</div>
               </button>
             )
           })}
@@ -81,7 +85,7 @@ export default function Analytics() {
 
       <div className="grid grid-cols-3 gap-6">
         <div className="card p-6 col-span-2">
-          <h2 className="font-display text-xl font-bold mb-5">{periodObj.label} earnings</h2>
+          <h2 className="font-display text-xl font-bold mb-5">{t('analytics.earnings', { period: t('analytics.' + periodObj.labelKey) })}</h2>
           <div className="flex items-end gap-2 h-64">
             {series.map((s, i) => (
               <div key={i} className="flex-1 flex flex-col items-center justify-end h-full gap-2 group">
@@ -99,22 +103,22 @@ export default function Analytics() {
                 <div className="text-[11px] text-muted whitespace-nowrap">{s.label}</div>
               </div>
             ))}
-            {series.length === 0 && <p className="text-muted">No data yet.</p>}
+            {series.length === 0 && <p className="text-muted">{t('analytics.noData')}</p>}
           </div>
         </div>
 
         <div className="card p-6">
-          <h2 className="font-display text-xl font-bold mb-5">Top products</h2>
-          {top.length === 0 && <p className="text-muted">No sales in this period.</p>}
+          <h2 className="font-display text-xl font-bold mb-5">{t('analytics.topProducts')}</h2>
+          {top.length === 0 && <p className="text-muted">{t('analytics.noSales')}</p>}
           <div className="space-y-3.5">
-            {top.map((t, i) => (
+            {top.map((tp, i) => (
               <div key={i} className="flex items-center gap-3">
                 <span className="w-7 h-7 rounded-full bg-surface2 border border-line flex items-center justify-center text-sm font-bold tnum">{i + 1}</span>
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold truncate">{t.name}</div>
-                  <div className="text-xs text-muted tnum">{t.qty} sold</div>
+                  <div className="font-semibold truncate">{tp.name}</div>
+                  <div className="text-xs text-muted tnum">{t('analytics.sold', { n: tp.qty })}</div>
                 </div>
-                <div className="font-display font-bold text-ember tnum">{money(t.revenue)}</div>
+                <div className="font-display font-bold text-ember tnum">{money(tp.revenue)}</div>
               </div>
             ))}
           </div>
@@ -124,9 +128,9 @@ export default function Analytics() {
       {/* sales by server — admins only */}
       {isAdmin && (
       <div className="card p-6 mt-6">
-        <h2 className="font-display text-xl font-bold mb-5">Sales by server · {periodObj.metricLabel}</h2>
+        <h2 className="font-display text-xl font-bold mb-5">{t('analytics.byServer', { period: t('analytics.' + periodObj.metricKey) })}</h2>
         {servers.length === 0 ? (
-          <p className="text-muted">No sales in this period.</p>
+          <p className="text-muted">{t('analytics.noSales')}</p>
         ) : (
           <div className="space-y-4">
             {servers.map((s, i) => (
@@ -134,7 +138,7 @@ export default function Analytics() {
                 <div className="flex items-baseline justify-between mb-1.5">
                   <span className="font-semibold">{s.name}</span>
                   <span className="text-sm text-muted tnum">
-                    {s.orders} order{s.orders === 1 ? '' : 's'} ·{' '}
+                    {t('analytics.orders', { n: s.orders })} ·{' '}
                     <span className="font-display font-bold text-ember">{money(s.revenue)}</span>
                   </span>
                 </div>
@@ -181,13 +185,25 @@ function presetRange(preset) {
   return { from: null, to: null } // All time
 }
 
-const PRESETS = ['Today', 'This week', 'This month', 'This year', 'All time', 'Custom']
+// id drives presetRange + display; rangeKey is the report.* key main uses to localize
+// the range label on the PDF (null for Custom, which builds a label from the dates).
+const PRESETS = [
+  { id: 'Today', labelKey: 'today', rangeKey: 'today' },
+  { id: 'This week', labelKey: 'thisWeek', rangeKey: 'thisWeek' },
+  { id: 'This month', labelKey: 'thisMonth', rangeKey: 'thisMonth' },
+  { id: 'This year', labelKey: 'thisYear', rangeKey: 'thisYear' },
+  { id: 'All time', labelKey: 'allTime', rangeKey: 'allTime' },
+  { id: 'Custom', labelKey: 'custom', rangeKey: null }
+]
 
 function ExportDialog({ isAdmin, exporting, onClose, onExport }) {
+  const { t } = useT()
+  const { settings } = useSettings()
   const [preset, setPreset] = useState('This month')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [userId, setUserId] = useState('') // '' = all staff
+  const [lang, setLang] = useState(settings.language || 'en')
   const [users, setUsers] = useState([])
   const [sections, setSections] = useState({ summary: true, trend: true, topProducts: true, byServer: true, payments: true })
 
@@ -198,44 +214,43 @@ function ExportDialog({ isAdmin, exporting, onClose, onExport }) {
   const toggle = (k) => setSections((s) => ({ ...s, [k]: !s[k] }))
 
   const submit = () => {
-    let range
-    let rangeLabel
+    const chosen = PRESETS.find((p) => p.id === preset)
+    let payload
     if (preset === 'Custom') {
-      range = { from: from || null, to: to || null }
-      rangeLabel = from || to ? `${from || '…'} → ${to || '…'}` : 'All time'
+      const range = { from: from || null, to: to || null }
+      payload = from || to ? { ...range, rangeLabel: `${from || '…'} → ${to || '…'}` } : { ...range, rangeKey: 'allTime' }
     } else {
-      range = presetRange(preset)
-      rangeLabel = preset
+      payload = { ...presetRange(preset), rangeKey: chosen.rangeKey }
     }
-    onExport({ from: range.from, to: range.to, rangeLabel, userId: isAdmin ? userId || null : null, sections })
+    onExport({ ...payload, lang, userId: isAdmin ? userId || null : null, sections })
   }
 
   const sectionList = [
-    ['summary', 'Summary'],
-    ['trend', 'Sales trend'],
-    ['topProducts', 'Top products'],
-    ...(isAdmin ? [['byServer', 'Sales by server']] : []),
-    ['payments', 'Payments']
+    ['summary', t('analytics.secSummary')],
+    ['trend', t('analytics.secTrend')],
+    ['topProducts', t('analytics.secTop')],
+    ...(isAdmin ? [['byServer', t('analytics.secServer')]] : []),
+    ['payments', t('analytics.secPayments')]
   ]
 
   return (
-    <Modal title="Export report" subtitle="Choose what goes in the PDF" onClose={onClose} width={460}>
+    <Modal title={t('analytics.exportTitle')} subtitle={t('analytics.exportSubtitle')} onClose={onClose} width={460}>
       <div className="space-y-4">
         <div>
-          <span className="text-muted text-sm">Date range</span>
+          <span className="text-muted text-sm">{t('analytics.dateRange')}</span>
           <div className="flex flex-wrap gap-2 mt-1.5">
             {PRESETS.map((p) => (
-              <button key={p} onClick={() => setPreset(p)} className={pill(preset === p)}>{p}</button>
+              <button key={p.id} onClick={() => setPreset(p.id)} className={pill(preset === p.id)}>{t('analytics.' + p.labelKey)}</button>
             ))}
           </div>
           {preset === 'Custom' && (
             <div className="grid grid-cols-2 gap-3 mt-3">
               <label className="block">
-                <span className="text-muted text-xs">From</span>
+                <span className="text-muted text-xs">{t('analytics.from')}</span>
                 <input type="date" className="input mt-1 tnum" value={from} onChange={(e) => setFrom(e.target.value)} />
               </label>
               <label className="block">
-                <span className="text-muted text-xs">To</span>
+                <span className="text-muted text-xs">{t('analytics.to')}</span>
                 <input type="date" className="input mt-1 tnum" value={to} onChange={(e) => setTo(e.target.value)} />
               </label>
             </div>
@@ -244,9 +259,9 @@ function ExportDialog({ isAdmin, exporting, onClose, onExport }) {
 
         {isAdmin && (
           <label className="block">
-            <span className="text-muted text-sm">Staff</span>
+            <span className="text-muted text-sm">{t('analytics.staff')}</span>
             <select className="input mt-1.5" value={userId} onChange={(e) => setUserId(e.target.value)}>
-              <option value="">All staff</option>
+              <option value="">{t('analytics.allStaff')}</option>
               {users.map((u) => (
                 <option key={u.id} value={u.id}>{u.name || u.username}</option>
               ))}
@@ -254,8 +269,17 @@ function ExportDialog({ isAdmin, exporting, onClose, onExport }) {
           </label>
         )}
 
+        <label className="block">
+          <span className="text-muted text-sm">{t('settings.language')}</span>
+          <select className="input mt-1.5" value={lang} onChange={(e) => setLang(e.target.value)}>
+            {LANGUAGES.map((l) => (
+              <option key={l.code} value={l.code}>{l.label}</option>
+            ))}
+          </select>
+        </label>
+
         <div>
-          <span className="text-muted text-sm">Sections to include</span>
+          <span className="text-muted text-sm">{t('analytics.sections')}</span>
           <div className="grid grid-cols-2 gap-2 mt-1.5">
             {sectionList.map(([k, label]) => (
               <label key={k} className="flex items-center gap-2 text-sm">
@@ -268,9 +292,9 @@ function ExportDialog({ isAdmin, exporting, onClose, onExport }) {
       </div>
 
       <div className="flex gap-3 pt-3">
-        <button className="btn-ghost flex-1" onClick={onClose}>Cancel</button>
+        <button className="btn-ghost flex-1" onClick={onClose}>{t('common.cancel')}</button>
         <button className="btn-accent flex-1" disabled={exporting} onClick={submit}>
-          {exporting ? 'Exporting…' : 'Export PDF'}
+          {exporting ? t('analytics.exporting') : t('analytics.exportPdf')}
         </button>
       </div>
     </Modal>

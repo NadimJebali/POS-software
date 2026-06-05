@@ -69,6 +69,7 @@ export const locales = {
       deleteMsg: 'Delete this order? It stays in history marked as deleted, its stock is restored, and it no longer counts towards sales.',
       receipt: 'Receipt', servedBy: 'Served by', deleted: 'Deleted', by: 'by', reprint: 'Re-print', printing: 'Printing…',
       changeGiven: 'Change given', saveChanges: 'Save changes', noItems: 'No items recorded.', keepDisc: 'Keep', printFailed: 'Print failed',
+      orderTitle: 'Order #{id}', orderTitleTable: 'Order #{id} · Table {label}', unknown: 'Unknown', discount: 'Discount', subtotal: 'Subtotal', total: 'Total',
       cols: { order: 'Order', table: 'Table', server: 'Server', time: 'Time', items: 'Items', discount: 'Discount', total: 'Total', change: 'Change' }
     },
     analytics: {
@@ -84,8 +85,9 @@ export const locales = {
     users: {
       title: 'Users', subtitle: '{n} user(s)', addUser: 'Add user', newUser: 'New user', editUser: 'Edit user',
       username: 'Username', name: 'Display name', pin: 'PIN', role: 'Role', admin: 'Administrator', cashier: 'Cashier',
-      active: 'Active', inactive: 'Inactive', deleteTitle: 'Delete user', deleteMsg: 'Delete “{name}”?',
-      cols: { user: 'User', name: 'Name', role: 'Role', status: 'Status', created: 'Created' }, pinHint: 'Leave blank to keep the current PIN'
+      active: 'Active', inactive: 'Disabled', deleteTitle: 'Delete user', deleteMsg: 'Delete “{name}”?',
+      you: ' (you)', editUserName: 'Edit {username}', usernameSignin: 'Username (used to sign in)', pinNew: 'PIN (min 4 digits)', activeSignin: 'Active (can sign in)',
+      cols: { user: 'User', name: 'Name', role: 'Role', status: 'Status', created: 'Created' }, pinHint: 'New PIN (leave blank to keep)'
     },
     settings: {
       title: 'Setup', subtitle: 'Shop, receipt, currency & printer', saved: 'Saved ✓', saveChanges: 'Save changes',
@@ -166,6 +168,7 @@ export const locales = {
       deleteMsg: 'Supprimer cette commande ? Elle reste dans l’historique marquée comme supprimée, son stock est restauré et elle ne compte plus dans les ventes.',
       receipt: 'Reçu', servedBy: 'Servi par', deleted: 'Supprimée', by: 'par', reprint: 'Réimprimer', printing: 'Impression…',
       changeGiven: 'Monnaie rendue', saveChanges: 'Enregistrer', noItems: 'Aucun article enregistré.', keepDisc: 'Garder', printFailed: 'Échec de l’impression',
+      orderTitle: 'Commande #{id}', orderTitleTable: 'Commande #{id} · Table {label}', unknown: 'Inconnu', discount: 'Remise', subtotal: 'Sous-total', total: 'Total',
       cols: { order: 'Commande', table: 'Table', server: 'Serveur', time: 'Heure', items: 'Articles', discount: 'Remise', total: 'Total', change: 'Monnaie' }
     },
     analytics: {
@@ -181,8 +184,9 @@ export const locales = {
     users: {
       title: 'Utilisateurs', subtitle: '{n} utilisateur(s)', addUser: 'Ajouter', newUser: 'Nouvel utilisateur', editUser: 'Modifier l’utilisateur',
       username: 'Identifiant', name: 'Nom affiché', pin: 'Code PIN', role: 'Rôle', admin: 'Administrateur', cashier: 'Caissier',
-      active: 'Actif', inactive: 'Inactif', deleteTitle: 'Supprimer l’utilisateur', deleteMsg: 'Supprimer « {name} » ?',
-      cols: { user: 'Utilisateur', name: 'Nom', role: 'Rôle', status: 'Statut', created: 'Créé le' }, pinHint: 'Laissez vide pour garder le PIN actuel'
+      active: 'Actif', inactive: 'Désactivé', deleteTitle: 'Supprimer l’utilisateur', deleteMsg: 'Supprimer « {name} » ?',
+      you: ' (vous)', editUserName: 'Modifier {username}', usernameSignin: 'Identifiant (pour se connecter)', pinNew: 'Code PIN (min. 4 chiffres)', activeSignin: 'Actif (peut se connecter)',
+      cols: { user: 'Utilisateur', name: 'Nom', role: 'Rôle', status: 'Statut', created: 'Créé le' }, pinHint: 'Nouveau PIN (vide pour garder)'
     },
     settings: {
       title: 'Réglages', subtitle: 'Boutique, reçu, devise et imprimante', saved: 'Enregistré ✓', saveChanges: 'Enregistrer',
@@ -263,6 +267,7 @@ export const locales = {
       deleteMsg: 'حذف هذا الطلب؟ يبقى في السجل بعلامة محذوف، ويُعاد مخزونه، ولا يُحتسب ضمن المبيعات.',
       receipt: 'إيصال', servedBy: 'قدّمه', deleted: 'محذوف', by: 'بواسطة', reprint: 'إعادة الطباعة', printing: 'جارٍ الطباعة…',
       changeGiven: 'الباقي المُعاد', saveChanges: 'حفظ التغييرات', noItems: 'لا عناصر مسجّلة.', keepDisc: 'إبقاء', printFailed: 'فشلت الطباعة',
+      orderTitle: 'طلب رقم {id}', orderTitleTable: 'طلب رقم {id} · طاولة {label}', unknown: 'غير معروف', discount: 'الخصم', subtotal: 'المجموع الفرعي', total: 'الإجمالي',
       cols: { order: 'الطلب', table: 'الطاولة', server: 'الموظف', time: 'الوقت', items: 'العناصر', discount: 'الخصم', total: 'الإجمالي', change: 'الباقي' }
     },
     analytics: {
@@ -278,8 +283,9 @@ export const locales = {
     users: {
       title: 'المستخدمون', subtitle: '{n} مستخدم', addUser: 'إضافة', newUser: 'مستخدم جديد', editUser: 'تعديل المستخدم',
       username: 'اسم المستخدم', name: 'الاسم المعروض', pin: 'الرمز السري', role: 'الدور', admin: 'مدير', cashier: 'أمين صندوق',
-      active: 'مفعّل', inactive: 'غير مفعّل', deleteTitle: 'حذف المستخدم', deleteMsg: 'حذف « {name} »؟',
-      cols: { user: 'المستخدم', name: 'الاسم', role: 'الدور', status: 'الحالة', created: 'أُنشئ في' }, pinHint: 'اتركه فارغًا للإبقاء على الرمز الحالي'
+      active: 'مفعّل', inactive: 'معطّل', deleteTitle: 'حذف المستخدم', deleteMsg: 'حذف « {name} »؟',
+      you: ' (أنت)', editUserName: 'تعديل {username}', usernameSignin: 'اسم المستخدم (لتسجيل الدخول)', pinNew: 'الرمز السري (4 أرقام على الأقل)', activeSignin: 'مفعّل (يمكنه تسجيل الدخول)',
+      cols: { user: 'المستخدم', name: 'الاسم', role: 'الدور', status: 'الحالة', created: 'أُنشئ في' }, pinHint: 'رمز جديد (اتركه فارغًا للإبقاء)'
     },
     settings: {
       title: 'الإعدادات', subtitle: 'المتجر والإيصال والعملة والطابعة', saved: 'تم الحفظ ✓', saveChanges: 'حفظ التغييرات',

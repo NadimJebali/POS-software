@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
 import { money } from '../lib/settings'
 import { useAuth } from '../lib/auth'
+import { useT } from '../lib/i18n'
 import PageHeader from '../components/PageHeader'
 import Modal from '../components/Modal'
 import { useDialog } from '../components/Dialog'
@@ -15,6 +16,7 @@ const todayStr = () => {
 export default function History() {
   const { isAdmin } = useAuth()
   const { confirm, alert } = useDialog()
+  const { t } = useT()
   const [date, setDate] = useState(todayStr())
   const [all, setAll] = useState(false)
   const [orders, setOrders] = useState([])
@@ -30,10 +32,10 @@ export default function History() {
 
   const cancelOrder = async (id) => {
     const ok = await confirm({
-      title: 'Delete order',
-      message: 'Delete this order? It stays in history marked as deleted, its stock is restored, and it no longer counts towards sales.',
-      confirmText: 'Delete order',
-      cancelText: 'Keep',
+      title: t('history.deleteTitle'),
+      message: t('history.deleteMsg'),
+      confirmText: t('history.deleteConfirm'),
+      cancelText: t('common.keep'),
       danger: true
     })
     if (!ok) return
@@ -42,7 +44,7 @@ export default function History() {
       setDetail(null)
       load()
     } catch (e) {
-      alert({ title: 'Error', message: e.message })
+      alert({ title: t('common.error'), message: e.message })
     }
   }
 
@@ -52,7 +54,7 @@ export default function History() {
       setDetail(updated)
       load()
     } catch (e) {
-      alert({ title: 'Error', message: e.message })
+      alert({ title: t('common.error'), message: e.message })
     }
   }
 
@@ -64,7 +66,7 @@ export default function History() {
     try {
       await api.receipt.print(id)
     } catch (e) {
-      alert({ title: 'Print failed', message: e.message })
+      alert({ title: t('history.printFailed'), message: e.message })
     } finally {
       setPrinting(null)
     }
@@ -72,12 +74,12 @@ export default function History() {
 
   return (
     <div className="h-full flex flex-col p-7 overflow-hidden">
-      <PageHeader title="History" subtitle={`${orders.length} order${orders.length === 1 ? '' : 's'} · ${money(total)}`}>
+      <PageHeader title={t('history.title')} subtitle={t('history.subtitle', { n: orders.length, total: money(total) })}>
         <button
           onClick={() => setAll((v) => !v)}
           className={`px-4 py-2.5 rounded-2xl font-semibold border transition ${all ? 'bg-ember text-[#2a1c0c] border-ember' : 'bg-surface2 border-line text-muted hover:text-cream'}`}
         >
-          All time
+          {t('history.allTime')}
         </button>
         <input
           type="date"
@@ -92,14 +94,14 @@ export default function History() {
         <table className="w-full text-left">
           <thead className="sticky top-0 bg-surface text-muted text-sm z-10">
             <tr>
-              <th className="px-5 py-4 font-medium">Order</th>
-              <th className="px-5 py-4 font-medium">Table</th>
-              <th className="px-5 py-4 font-medium">Server</th>
-              <th className="px-5 py-4 font-medium">Time</th>
-              <th className="px-5 py-4 font-medium text-center">Items</th>
-              <th className="px-5 py-4 font-medium text-right">Discount</th>
-              <th className="px-5 py-4 font-medium text-right">Total</th>
-              <th className="px-5 py-4 font-medium text-right">Change</th>
+              <th className="px-5 py-4 font-medium">{t('history.cols.order')}</th>
+              <th className="px-5 py-4 font-medium">{t('history.cols.table')}</th>
+              <th className="px-5 py-4 font-medium">{t('history.cols.server')}</th>
+              <th className="px-5 py-4 font-medium">{t('history.cols.time')}</th>
+              <th className="px-5 py-4 font-medium text-center">{t('history.cols.items')}</th>
+              <th className="px-5 py-4 font-medium text-right">{t('history.cols.discount')}</th>
+              <th className="px-5 py-4 font-medium text-right">{t('history.cols.total')}</th>
+              <th className="px-5 py-4 font-medium text-right">{t('history.cols.change')}</th>
               <th className="px-5 py-4"></th>
             </tr>
           </thead>
@@ -115,7 +117,7 @@ export default function History() {
                 <td className="px-5 py-3.5 font-semibold tnum">
                   #{o.id}
                   {deleted && (
-                    <span className="ml-2 chip bg-berry/20 text-berry text-xs align-middle">deleted by {o.deleted_by || '—'}</span>
+                    <span className="ml-2 chip bg-berry/20 text-berry text-xs align-middle">{t('history.deletedBy', { name: o.deleted_by || '—' })}</span>
                   )}
                 </td>
                 <td className="px-5 py-3.5">{o.table_label || '—'}</td>
@@ -134,14 +136,14 @@ export default function History() {
                       reprint(o.id)
                     }}
                   >
-                    <IconPrint width={18} height={18} /> {printing === o.id ? '…' : 'Receipt'}
+                    <IconPrint width={18} height={18} /> {printing === o.id ? '…' : t('history.receipt')}
                   </button>
                 </td>
               </tr>
               )
             })}
             {orders.length === 0 && (
-              <tr><td colSpan={9} className="px-5 py-12 text-center text-muted">No orders for this period.</td></tr>
+              <tr><td colSpan={9} className="px-5 py-12 text-center text-muted">{t('history.noOrders')}</td></tr>
             )}
           </tbody>
         </table>
@@ -166,6 +168,7 @@ export default function History() {
 const DISCOUNTS = [0, 5, 10, 15]
 
 function OrderDetail({ order, isAdmin, canDelete, onClose, onReprint, printing, onCancel, onSave }) {
+  const { t } = useT()
   const [edit, setEdit] = useState(false)
   const [qty, setQty] = useState({})
   const [disc, setDisc] = useState(null) // null = keep existing; number = percent
@@ -196,20 +199,20 @@ function OrderDetail({ order, isAdmin, canDelete, onClose, onReprint, printing, 
 
   return (
     <Modal
-      title={`Order #${order.id}${order.table_label ? ` · Table ${order.table_label}` : ''}`}
+      title={order.table_label ? t('history.orderTitleTable', { id: order.id, label: order.table_label }) : t('history.orderTitle', { id: order.id })}
       subtitle={when}
       onClose={onClose}
       width={480}
     >
       <div className="flex items-center gap-2 mb-3">
-        <span className="chip bg-surface3 text-muted">Served by</span>
-        <span className="font-semibold text-cream">{order.user_name || 'Unknown'}</span>
+        <span className="chip bg-surface3 text-muted">{t('history.servedBy')}</span>
+        <span className="font-semibold text-cream">{order.user_name || t('history.unknown')}</span>
       </div>
 
       {deleted && (
         <div className="mb-3 rounded-xl bg-berry/15 border border-berry/40 px-4 py-2.5 text-sm">
-          <span className="font-semibold text-berry">Deleted</span>
-          <span className="text-cream"> by {order.deleted_by || 'Unknown'}</span>
+          <span className="font-semibold text-berry">{t('history.deleted')}</span>
+          <span className="text-cream"> {t('history.by')} {order.deleted_by || t('history.unknown')}</span>
           {order.deleted_at && <span className="text-muted"> · {new Date(order.deleted_at + 'Z').toLocaleString()}</span>}
         </div>
       )}
@@ -234,15 +237,15 @@ function OrderDetail({ order, isAdmin, canDelete, onClose, onReprint, printing, 
             )}
           </div>
         ))}
-        {order.items.length === 0 && <p className="text-muted py-3">No items recorded.</p>}
+        {order.items.length === 0 && <p className="text-muted py-3">{t('history.noItems')}</p>}
       </div>
 
       {edit && (
         <div className="flex items-center gap-2 pt-1">
-          <span className="text-muted text-sm mr-1">Discount</span>
-          <button onClick={() => setDisc(null)} className={pill(disc === null)}>Keep</button>
+          <span className="text-muted text-sm mr-1">{t('history.discount')}</span>
+          <button onClick={() => setDisc(null)} className={pill(disc === null)}>{t('history.keepDisc')}</button>
           {DISCOUNTS.map((d) => (
-            <button key={d} onClick={() => setDisc(d)} className={pill(disc === d)}>{d === 0 ? 'None' : `${d}%`}</button>
+            <button key={d} onClick={() => setDisc(d)} className={pill(disc === d)}>{d === 0 ? t('common.none') : `${d}%`}</button>
           ))}
         </div>
       )}
@@ -250,24 +253,24 @@ function OrderDetail({ order, isAdmin, canDelete, onClose, onReprint, printing, 
       <div className="space-y-1.5 pt-1">
         {discount > 0 && (
           <>
-            <Line label="Subtotal" value={money(subtotal)} muted />
-            <Line label="Discount" value={`- ${money(discount)}`} className="text-berry" />
+            <Line label={t('history.subtotal')} value={money(subtotal)} muted />
+            <Line label={t('history.discount')} value={`- ${money(discount)}`} className="text-berry" />
           </>
         )}
         <div className="flex justify-between items-baseline">
-          <span className="text-lg">Total</span>
+          <span className="text-lg">{t('history.total')}</span>
           <span className="font-display text-2xl font-bold text-ember tnum">{money(total)}</span>
         </div>
         {!edit &&
           (order.payments || []).map((p) => (
             <div key={p.id} className="flex justify-between items-center rounded-xl bg-surface2/70 border border-line px-4 py-2 mt-1">
-              <span className="chip bg-surface3 text-cream">{p.method === 'card' ? 'Card' : 'Cash'}</span>
+              <span className="chip bg-surface3 text-cream">{p.method === 'card' ? t('checkout.card') : t('checkout.cash')}</span>
               <span className="font-display font-bold text-cream tnum">{money(p.amount)}</span>
             </div>
           ))}
         {!edit && order.change_due > 0 && (
           <div className="flex justify-between items-center rounded-2xl bg-mint/15 border border-mint/40 px-4 py-2.5 mt-2">
-            <span className="text-mint font-semibold">Change given</span>
+            <span className="text-mint font-semibold">{t('history.changeGiven')}</span>
             <span className="font-display text-xl font-bold text-mint tnum">{money(order.change_due)}</span>
           </div>
         )}
@@ -275,8 +278,8 @@ function OrderDetail({ order, isAdmin, canDelete, onClose, onReprint, printing, 
 
       {edit ? (
         <div className="flex gap-3 pt-2">
-          <button className="btn-ghost flex-1" onClick={() => setEdit(false)}>Discard</button>
-          <button className="btn-accent flex-1" onClick={save}>Save changes</button>
+          <button className="btn-ghost flex-1" onClick={() => setEdit(false)}>{t('common.discard')}</button>
+          <button className="btn-accent flex-1" onClick={save}>{t('history.saveChanges')}</button>
         </div>
       ) : (
         <div className="space-y-3 pt-2">
@@ -284,21 +287,21 @@ function OrderDetail({ order, isAdmin, canDelete, onClose, onReprint, printing, 
             <div className="flex gap-3">
               {isAdmin && (
                 <button className="btn-ghost flex-1" onClick={() => setEdit(true)}>
-                  <IconEdit width={18} height={18} /> Edit
+                  <IconEdit width={18} height={18} /> {t('common.edit')}
                 </button>
               )}
               {canDelete && (
                 <button className="btn-danger flex-1" onClick={onCancel}>
-                  <IconTrash width={18} height={18} /> Delete order
+                  <IconTrash width={18} height={18} /> {t('history.deleteConfirm')}
                 </button>
               )}
             </div>
           )}
           <div className="flex gap-3">
             <button className="btn-ghost flex-1" disabled={printing} onClick={onReprint}>
-              <IconPrint width={20} height={20} /> {printing ? 'Printing…' : 'Re-print'}
+              <IconPrint width={20} height={20} /> {printing ? t('history.printing') : t('history.reprint')}
             </button>
-            <button className="btn-accent flex-1" onClick={onClose}>Close</button>
+            <button className="btn-accent flex-1" onClick={onClose}>{t('common.close')}</button>
           </div>
         </div>
       )}
