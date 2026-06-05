@@ -3,6 +3,7 @@ import { api } from '../lib/api'
 import { money } from '../lib/settings'
 import { useAuth } from '../lib/auth'
 import { useDialog } from '../components/Dialog'
+import Modal from '../components/Modal'
 import PageHeader from '../components/PageHeader'
 
 const PERIODS = [
@@ -21,12 +22,16 @@ export default function Analytics() {
   const [top, setTop] = useState([])
   const [servers, setServers] = useState([])
   const [exporting, setExporting] = useState(false)
+  const [showExport, setShowExport] = useState(false)
 
-  const exportPdf = async () => {
+  const runExport = async (params) => {
     setExporting(true)
     try {
-      const res = await api.analytics.exportPdf(period)
-      if (res?.ok) alert({ title: 'Report saved', message: res.path })
+      const res = await api.analytics.exportPdf(params)
+      if (res?.ok) {
+        setShowExport(false)
+        alert({ title: 'Report saved', message: res.path })
+      }
     } catch (e) {
       alert({ title: 'Export failed', message: e.message })
     } finally {
@@ -53,9 +58,7 @@ export default function Analytics() {
   return (
     <div className="h-full flex flex-col p-7 overflow-y-auto">
       <PageHeader title="Analytics" subtitle={isAdmin ? 'Earnings overview' : 'Your earnings overview'}>
-        <button className="btn-accent" disabled={exporting} onClick={exportPdf}>
-          {exporting ? 'Exporting…' : 'Export PDF'}
-        </button>
+        <button className="btn-accent" onClick={() => setShowExport(true)}>Export PDF</button>
       </PageHeader>
 
       <div className="grid grid-cols-4 gap-4 mb-6">
@@ -147,6 +150,129 @@ export default function Analytics() {
         )}
       </div>
       )}
+
+      {showExport && (
+        <ExportDialog isAdmin={isAdmin} exporting={exporting} onClose={() => setShowExport(false)} onExport={runExport} />
+      )}
     </div>
+  )
+}
+
+const pill = (active) =>
+  `px-3.5 py-2 rounded-xl text-sm font-semibold border transition ${
+    active ? 'bg-ember text-[#2a1c0c] border-ember' : 'bg-surface2 border-line text-muted hover:text-cream'
+  }`
+
+const localISO = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+// Compute a {from,to} date range (local YYYY-MM-DD) for a named preset.
+function presetRange(preset) {
+  const now = new Date()
+  const today = localISO(now)
+  if (preset === 'Today') return { from: today, to: today }
+  if (preset === 'This week') {
+    const d = new Date(now)
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7)) // back to Monday
+    return { from: localISO(d), to: today }
+  }
+  if (preset === 'This month') return { from: localISO(new Date(now.getFullYear(), now.getMonth(), 1)), to: today }
+  if (preset === 'This year') return { from: localISO(new Date(now.getFullYear(), 0, 1)), to: today }
+  return { from: null, to: null } // All time
+}
+
+const PRESETS = ['Today', 'This week', 'This month', 'This year', 'All time', 'Custom']
+
+function ExportDialog({ isAdmin, exporting, onClose, onExport }) {
+  const [preset, setPreset] = useState('This month')
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
+  const [userId, setUserId] = useState('') // '' = all staff
+  const [users, setUsers] = useState([])
+  const [sections, setSections] = useState({ summary: true, trend: true, topProducts: true, byServer: true, payments: true })
+
+  useEffect(() => {
+    if (isAdmin) api.auth.users().then(setUsers).catch(() => setUsers([]))
+  }, [isAdmin])
+
+  const toggle = (k) => setSections((s) => ({ ...s, [k]: !s[k] }))
+
+  const submit = () => {
+    let range
+    let rangeLabel
+    if (preset === 'Custom') {
+      range = { from: from || null, to: to || null }
+      rangeLabel = from || to ? `${from || '…'} → ${to || '…'}` : 'All time'
+    } else {
+      range = presetRange(preset)
+      rangeLabel = preset
+    }
+    onExport({ from: range.from, to: range.to, rangeLabel, userId: isAdmin ? userId || null : null, sections })
+  }
+
+  const sectionList = [
+    ['summary', 'Summary'],
+    ['trend', 'Sales trend'],
+    ['topProducts', 'Top products'],
+    ...(isAdmin ? [['byServer', 'Sales by server']] : []),
+    ['payments', 'Payments']
+  ]
+
+  return (
+    <Modal title="Export report" subtitle="Choose what goes in the PDF" onClose={onClose} width={460}>
+      <div className="space-y-4">
+        <div>
+          <span className="text-muted text-sm">Date range</span>
+          <div className="flex flex-wrap gap-2 mt-1.5">
+            {PRESETS.map((p) => (
+              <button key={p} onClick={() => setPreset(p)} className={pill(preset === p)}>{p}</button>
+            ))}
+          </div>
+          {preset === 'Custom' && (
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <label className="block">
+                <span className="text-muted text-xs">From</span>
+                <input type="date" className="input mt-1 tnum" value={from} onChange={(e) => setFrom(e.target.value)} />
+              </label>
+              <label className="block">
+                <span className="text-muted text-xs">To</span>
+                <input type="date" className="input mt-1 tnum" value={to} onChange={(e) => setTo(e.target.value)} />
+              </label>
+            </div>
+          )}
+        </div>
+
+        {isAdmin && (
+          <label className="block">
+            <span className="text-muted text-sm">Staff</span>
+            <select className="input mt-1.5" value={userId} onChange={(e) => setUserId(e.target.value)}>
+              <option value="">All staff</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>{u.name || u.username}</option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        <div>
+          <span className="text-muted text-sm">Sections to include</span>
+          <div className="grid grid-cols-2 gap-2 mt-1.5">
+            {sectionList.map(([k, label]) => (
+              <label key={k} className="flex items-center gap-2 text-sm">
+                <input type="checkbox" className="w-5 h-5 accent-[#EC9A45]" checked={sections[k]} onChange={() => toggle(k)} />
+                {label}
+              </label>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex gap-3 pt-3">
+        <button className="btn-ghost flex-1" onClick={onClose}>Cancel</button>
+        <button className="btn-accent flex-1" disabled={exporting} onClick={submit}>
+          {exporting ? 'Exporting…' : 'Export PDF'}
+        </button>
+      </div>
+    </Modal>
   )
 }

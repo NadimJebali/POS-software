@@ -81,7 +81,7 @@ export const api = {
     topProducts: (period) => call('analytics:topProducts', { period }),
     byServer: (period) => call('analytics:byServer', { period }),
     recentOrders: () => call('analytics:recentOrders'),
-    exportPdf: (period) => call('analytics:exportPdf', { period })
+    exportPdf: (params) => call('analytics:exportPdf', params)
   },
   db: {
     export: () => call('db:export'),

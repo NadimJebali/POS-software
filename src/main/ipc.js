@@ -687,21 +687,90 @@ export function registerIpc(db) {
         )
         .all(),
 
-    // Export the analytics as a PDF, scoped exactly like the on-screen stats:
-    // a cashier gets their own numbers, an admin gets the whole shop.
-    'analytics:exportPdf': ({ period }) => {
-      const metricFor = { daily: 'today', weekly: 'week', monthly: 'month', yearly: 'year' }
-      const p = metricFor[period] ? period : 'daily'
-      const metric = metricFor[p]
+    // Export the analytics as a PDF with caller-chosen parameters: a date range
+    // (from/to as YYYY-MM-DD, or null = all time), an optional staff filter, and
+    // which sections to include. Scope is enforced here — non-admins are always
+    // locked to their own sales regardless of any userId passed in.
+    'analytics:exportPdf': ({ from, to, userId, sections, rangeLabel }) => {
+      const scopedUserId = isAdmin()
+        ? userId != null && userId !== '' ? Number(userId) : null
+        : currentUser
+          ? currentUser.id
+          : -1
+
+      const conds = ["o.status = 'paid'"]
+      const params = []
+      if (from) {
+        conds.push("date(o.paid_at,'localtime') >= ?")
+        params.push(from)
+      }
+      if (to) {
+        conds.push("date(o.paid_at,'localtime') <= ?")
+        params.push(to)
+      }
+      if (scopedUserId != null) {
+        conds.push('o.user_id = ?')
+        params.push(scopedUserId)
+      }
+      const whereO = conds.join(' AND ')
+
+      const summary = db.prepare(`SELECT COALESCE(SUM(o.total),0) AS total, COUNT(*) AS count FROM orders o WHERE ${whereO}`).get(...params)
+      summary.avg = summary.count ? Math.round(summary.total / summary.count) : 0
+
+      // Day buckets for short ranges, month buckets for long/open-ended ones.
+      const daySpan = from && to ? Math.round((new Date(to) - new Date(from)) / 86400000) : Infinity
+      const byDay = !!from && daySpan <= 62
+      const bucket = byDay ? "date(o.paid_at,'localtime')" : "strftime('%Y-%m', o.paid_at,'localtime')"
+      const trend = db
+        .prepare(`SELECT ${bucket} AS label, COUNT(*) AS count, COALESCE(SUM(o.total),0) AS total FROM orders o WHERE ${whereO} GROUP BY label ORDER BY label`)
+        .all(...params)
+
+      const top = db
+        .prepare(
+          `SELECT oi.name AS name, SUM(oi.qty) AS qty, SUM(oi.qty * oi.unit_price) AS revenue
+           FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE ${whereO}
+           GROUP BY oi.name ORDER BY revenue DESC LIMIT 10`
+        )
+        .all(...params)
+
+      const byServer = db
+        .prepare(
+          `SELECT COALESCE(o.user_name,'Unknown') AS name, COUNT(*) AS orders, COALESCE(SUM(o.total),0) AS revenue
+           FROM orders o WHERE ${whereO} GROUP BY COALESCE(o.user_name,'Unknown') ORDER BY revenue DESC`
+        )
+        .all(...params)
+
+      const methods = db
+        .prepare(`SELECT p.method AS method, COALESCE(SUM(p.amount),0) AS amount FROM payments p JOIN orders o ON o.id = p.order_id WHERE ${whereO} GROUP BY p.method ORDER BY amount DESC`)
+        .all(...params)
+      const change = db.prepare(`SELECT COALESCE(SUM(o.change_due),0) AS c FROM orders o WHERE ${whereO}`).get(...params).c
+
+      let scope
+      if (!isAdmin()) scope = currentUser ? currentUser.name || currentUser.username : 'You'
+      else if (scopedUserId != null) {
+        const u = db.prepare('SELECT name, username FROM users WHERE id = ?').get(scopedUserId)
+        scope = u ? u.name || u.username : 'Unknown'
+      } else scope = 'All staff'
+
+      const want = sections || {}
       return exportAnalyticsPdf({
         shop: getSettings(),
         isAdmin: isAdmin(),
-        scope: isAdmin() ? null : currentUser ? currentUser.name || currentUser.username : null,
-        period: p,
-        overview: handlers['analytics:overview'](),
-        series: handlers['analytics:series']({ period: p }),
-        top: handlers['analytics:topProducts']({ period: metric }),
-        byServer: isAdmin() ? handlers['analytics:byServer']({ period: metric }) : null,
+        scope,
+        rangeLabel: rangeLabel || 'All time',
+        sections: {
+          summary: want.summary !== false,
+          trend: want.trend !== false,
+          topProducts: want.topProducts !== false,
+          byServer: want.byServer !== false,
+          payments: want.payments !== false
+        },
+        summary,
+        trend,
+        trendBy: byDay ? 'day' : 'month',
+        top,
+        byServer,
+        payments: { methods, change },
         generatedAt: new Date()
       })
     }
