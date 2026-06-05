@@ -96,7 +96,19 @@ export const locales = {
       autoLock: 'Auto-lock after idle minutes (0 = never)', stock: 'Stock', lowStock: 'Low-stock warning threshold',
       currency: 'Currency', symbol: 'Symbol', decimals: 'Decimals', symbolPos: 'Symbol position', preview: 'Preview',
       printer: 'Printer', receiptPrinter: 'Receipt printer', printingMode: 'Printing mode', showDialog: 'Show dialog',
-      printSilently: 'Print silently', language: 'Language', languageHint: 'Changes the language across the whole app.'
+      printSilently: 'Print silently', language: 'Language', languageHint: 'Changes the language across the whole app.',
+      posAfter: 'After (12.500 DT)', posBefore: 'Before ($12.50)', paperWidthMm: '{w} mm',
+      printerDefault: 'System default / ask each time', defaultSuffix: ' (default)',
+      autoLockHint: 'When set, the app signs the current user out after this many minutes with no activity, so an unattended terminal returns to the login screen.',
+      lowStockHint: 'Products with stock at or below this number are flagged as low (amber) across the app; a badge on the Menu tab shows how many need restocking. Stock is reduced automatically when a sale is completed and restored if an order is cancelled.',
+      printerHint: 'Silent printing sends straight to the selected printer (best for a thermal printer). “Show dialog” lets you choose a printer or print to PDF each time.',
+      backup: 'Backup & restore', backupNeedLicense: 'Database backup and restore require an active license. Activate a license to enable it.',
+      backupDesc: 'Export saves a complete copy of your data — products, sales, users and settings — to a file you choose. Import replaces all current data with a backup and restarts the app.',
+      exportBackup: 'Export backup', importBackup: 'Import backup', backupSaved: 'Backup saved', exportFailed: 'Export failed',
+      importTitle: 'Import database', importMsg: 'This replaces ALL current data with the chosen backup and restarts the app. A copy of the current data is saved first. Continue?', importConfirm: 'Choose file & import', importFailed: 'Import failed',
+      license: 'License', licLicensed: 'Licensed', licTrial: 'Trial', licUnlicensed: 'Not licensed', licExpired: 'Expired',
+      daysLeft: '{n} days left', expires: 'expires {date}', machineId: 'Machine ID (send to vendor for a license)', copy: 'Copy',
+      enterLicense: 'Enter / renew license', pasteLicense: 'paste license here', licenseActivated: 'License activated', activating: 'Activating…', activateLicense: 'Activate license'
     }
   },
 
@@ -195,7 +207,19 @@ export const locales = {
       autoLock: 'Verrouillage auto après inactivité (0 = jamais)', stock: 'Stock', lowStock: 'Seuil d’alerte de stock bas',
       currency: 'Devise', symbol: 'Symbole', decimals: 'Décimales', symbolPos: 'Position du symbole', preview: 'Aperçu',
       printer: 'Imprimante', receiptPrinter: 'Imprimante de reçus', printingMode: 'Mode d’impression', showDialog: 'Afficher la boîte',
-      printSilently: 'Impression silencieuse', language: 'Langue', languageHint: 'Change la langue dans toute l’application.'
+      printSilently: 'Impression silencieuse', language: 'Langue', languageHint: 'Change la langue dans toute l’application.',
+      posAfter: 'Après (12.500 DT)', posBefore: 'Avant ($12.50)', paperWidthMm: '{w} mm',
+      printerDefault: 'Par défaut / demander à chaque fois', defaultSuffix: ' (par défaut)',
+      autoLockHint: 'Si activé, l’application déconnecte l’utilisateur après ce nombre de minutes d’inactivité, afin qu’un terminal laissé sans surveillance revienne à l’écran de connexion.',
+      lowStockHint: 'Les produits dont le stock est inférieur ou égal à ce nombre sont signalés comme bas (ambre) dans toute l’application ; un badge sur l’onglet Menu indique combien doivent être réapprovisionnés. Le stock diminue automatiquement à la vente et est restauré si une commande est annulée.',
+      printerHint: 'L’impression silencieuse envoie directement vers l’imprimante sélectionnée (idéal pour une imprimante thermique). « Afficher la boîte » permet de choisir une imprimante ou d’imprimer en PDF à chaque fois.',
+      backup: 'Sauvegarde et restauration', backupNeedLicense: 'La sauvegarde et la restauration nécessitent une licence active. Activez une licence pour les utiliser.',
+      backupDesc: 'L’export enregistre une copie complète de vos données — produits, ventes, utilisateurs et réglages — dans un fichier de votre choix. L’import remplace toutes les données actuelles par une sauvegarde et redémarre l’application.',
+      exportBackup: 'Exporter la sauvegarde', importBackup: 'Importer une sauvegarde', backupSaved: 'Sauvegarde enregistrée', exportFailed: 'Échec de l’export',
+      importTitle: 'Importer la base de données', importMsg: 'Ceci remplace TOUTES les données actuelles par la sauvegarde choisie et redémarre l’application. Une copie des données actuelles est enregistrée au préalable. Continuer ?', importConfirm: 'Choisir le fichier et importer', importFailed: 'Échec de l’import',
+      license: 'Licence', licLicensed: 'Sous licence', licTrial: 'Essai', licUnlicensed: 'Non licencié', licExpired: 'Expirée',
+      daysLeft: '{n} jours restants', expires: 'expire le {date}', machineId: 'ID machine (à envoyer au vendeur pour une licence)', copy: 'Copier',
+      enterLicense: 'Saisir / renouveler la licence', pasteLicense: 'collez la licence ici', licenseActivated: 'Licence activée', activating: 'Activation…', activateLicense: 'Activer la licence'
     }
   },
 
@@ -294,7 +318,19 @@ export const locales = {
       autoLock: 'القفل التلقائي بعد دقائق خمول (0 = أبدًا)', stock: 'المخزون', lowStock: 'حدّ التنبيه لانخفاض المخزون',
       currency: 'العملة', symbol: 'الرمز', decimals: 'المنازل العشرية', symbolPos: 'موضع الرمز', preview: 'معاينة',
       printer: 'الطابعة', receiptPrinter: 'طابعة الإيصالات', printingMode: 'وضع الطباعة', showDialog: 'إظهار النافذة',
-      printSilently: 'طباعة صامتة', language: 'اللغة', languageHint: 'تغيّر لغة التطبيق بالكامل.'
+      printSilently: 'طباعة صامتة', language: 'اللغة', languageHint: 'تغيّر لغة التطبيق بالكامل.',
+      posAfter: 'بعد (12.500 DT)', posBefore: 'قبل ($12.50)', paperWidthMm: '{w} مم',
+      printerDefault: 'الافتراضي / السؤال في كل مرة', defaultSuffix: ' (افتراضي)',
+      autoLockHint: 'عند التفعيل، يُسجّل التطبيق خروج المستخدم الحالي بعد هذا العدد من دقائق الخمول، فيعود الطرفية غير المراقبة إلى شاشة تسجيل الدخول.',
+      lowStockHint: 'المنتجات التي يساوي مخزونها هذا الحد أو يقل عنه تُعلَّم كمنخفضة (كهرماني) في كل التطبيق؛ وتعرض شارة في تبويب القائمة عدد ما يحتاج إعادة تخزين. يُخصم المخزون تلقائيًا عند إتمام البيع ويُعاد عند إلغاء الطلب.',
+      printerHint: 'الطباعة الصامتة تُرسل مباشرة إلى الطابعة المحددة (الأفضل للطابعة الحرارية). «إظهار النافذة» يتيح اختيار طابعة أو الطباعة إلى PDF في كل مرة.',
+      backup: 'النسخ الاحتياطي والاستعادة', backupNeedLicense: 'يتطلب النسخ الاحتياطي والاستعادة ترخيصًا فعّالًا. فعّل ترخيصًا لتمكينه.',
+      backupDesc: 'يحفظ التصدير نسخة كاملة من بياناتك — المنتجات والمبيعات والمستخدمين والإعدادات — في ملف تختاره. يستبدل الاستيراد كل البيانات الحالية بنسخة احتياطية ويعيد تشغيل التطبيق.',
+      exportBackup: 'تصدير نسخة احتياطية', importBackup: 'استيراد نسخة احتياطية', backupSaved: 'تم حفظ النسخة الاحتياطية', exportFailed: 'فشل التصدير',
+      importTitle: 'استيراد قاعدة البيانات', importMsg: 'سيستبدل هذا كل البيانات الحالية بالنسخة المختارة ويعيد تشغيل التطبيق. تُحفظ نسخة من البيانات الحالية أولاً. متابعة؟', importConfirm: 'اختر الملف واستورد', importFailed: 'فشل الاستيراد',
+      license: 'الترخيص', licLicensed: 'مُرخّص', licTrial: 'تجربة', licUnlicensed: 'غير مُرخّص', licExpired: 'منتهٍ',
+      daysLeft: 'تبقّى {n} يوم', expires: 'ينتهي في {date}', machineId: 'معرّف الجهاز (أرسله للبائع للحصول على ترخيص)', copy: 'نسخ',
+      enterLicense: 'إدخال / تجديد الترخيص', pasteLicense: 'الصق الترخيص هنا', licenseActivated: 'تم تفعيل الترخيص', activating: 'جارٍ التفعيل…', activateLicense: 'تفعيل الترخيص'
     }
   }
 }

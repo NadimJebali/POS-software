@@ -66,47 +66,47 @@ export default function Settings() {
         <BackupSection />
 
         {/* Shop info */}
-        <Section title="Shop information">
-          <Field label="Shop name">
+        <Section title={t('settings.shopInfo')}>
+          <Field label={t('settings.shopName')}>
             <input className="input" value={form.shop_name} onChange={(e) => set('shop_name', e.target.value)} />
           </Field>
-          <Field label="Address">
+          <Field label={t('settings.address')}>
             <input className="input" value={form.shop_address} onChange={(e) => set('shop_address', e.target.value)} />
           </Field>
-          <Field label="Phone">
+          <Field label={t('settings.phone')}>
             <input className="input" value={form.shop_phone} onChange={(e) => set('shop_phone', e.target.value)} />
           </Field>
-          <Field label="Logo (shown on receipt)">
+          <Field label={t('settings.logo')}>
             <div className="flex items-center gap-4">
               {form.logo ? (
                 <img src={form.logo} alt="logo" className="w-16 h-16 object-contain rounded-xl bg-white p-1" />
               ) : (
-                <div className="w-16 h-16 rounded-xl bg-surface2 border border-line flex items-center justify-center text-muted text-xs">none</div>
+                <div className="w-16 h-16 rounded-xl bg-surface2 border border-line flex items-center justify-center text-muted text-xs">{t('common.none')}</div>
               )}
-              <button className="btn-ghost py-2" onClick={() => fileRef.current?.click()}>Upload</button>
-              {form.logo && <button className="text-muted hover:text-berry text-sm" onClick={() => set('logo', '')}>Remove</button>}
+              <button className="btn-ghost py-2" onClick={() => fileRef.current?.click()}>{t('common.upload')}</button>
+              {form.logo && <button className="text-muted hover:text-berry text-sm" onClick={() => set('logo', '')}>{t('common.remove')}</button>}
               <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={pickLogo} />
             </div>
           </Field>
         </Section>
 
         {/* Receipt */}
-        <Section title="Receipt">
-          <Field label="Footer message">
+        <Section title={t('settings.receipt')}>
+          <Field label={t('settings.footer')}>
             <input className="input" value={form.receipt_footer} onChange={(e) => set('receipt_footer', e.target.value)} />
           </Field>
-          <Field label="Paper width">
+          <Field label={t('settings.paperWidth')}>
             <div className="grid grid-cols-2 gap-2">
               {['58', '80'].map((w) => (
-                <button key={w} onClick={() => set('paper_width', w)} className={btn(form.paper_width === w)}>{w} mm</button>
+                <button key={w} onClick={() => set('paper_width', w)} className={btn(form.paper_width === w)}>{t('settings.paperWidthMm', { w })}</button>
               ))}
             </div>
           </Field>
         </Section>
 
         {/* Security */}
-        <Section title="Security">
-          <Field label="Auto-lock after idle minutes (0 = never)">
+        <Section title={t('settings.security')}>
+          <Field label={t('settings.autoLock')}>
             <input
               className="input tnum"
               type="number"
@@ -115,14 +115,12 @@ export default function Settings() {
               onChange={(e) => set('auto_lock_minutes', e.target.value)}
             />
           </Field>
-          <p className="text-muted text-sm">
-            When set, the app signs the current user out after this many minutes with no activity, so an unattended terminal returns to the login screen.
-          </p>
+          <p className="text-muted text-sm">{t('settings.autoLockHint')}</p>
         </Section>
 
         {/* Stock */}
-        <Section title="Stock">
-          <Field label="Low-stock warning threshold">
+        <Section title={t('settings.stock')}>
+          <Field label={t('settings.lowStock')}>
             <input
               className="input tnum"
               type="number"
@@ -131,53 +129,49 @@ export default function Settings() {
               onChange={(e) => set('low_stock_threshold', e.target.value)}
             />
           </Field>
-          <p className="text-muted text-sm">
-            Products with stock at or below this number are flagged as low (amber) across the app; a badge on the Menu tab shows how many need restocking. Stock is reduced automatically when a sale is completed and restored if an order is cancelled.
-          </p>
+          <p className="text-muted text-sm">{t('settings.lowStockHint')}</p>
         </Section>
 
         {/* Currency */}
-        <Section title="Currency">
+        <Section title={t('settings.currency')}>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Symbol">
+            <Field label={t('settings.symbol')}>
               <input className="input tnum" value={form.currency_symbol} onChange={(e) => set('currency_symbol', e.target.value)} />
             </Field>
-            <Field label="Decimals">
+            <Field label={t('settings.decimals')}>
               <select className="input" value={form.currency_decimals} onChange={(e) => set('currency_decimals', e.target.value)}>
                 {[0, 1, 2, 3].map((d) => <option key={d} value={String(d)}>{d}</option>)}
               </select>
             </Field>
           </div>
-          <Field label="Symbol position">
+          <Field label={t('settings.symbolPos')}>
             <div className="grid grid-cols-2 gap-2">
-              {[['after', 'After (12.500 DT)'], ['before', 'Before ($12.50)']].map(([v, label]) => (
+              {[['after', t('settings.posAfter')], ['before', t('settings.posBefore')]].map(([v, label]) => (
                 <button key={v} onClick={() => set('currency_position', v)} className={btn(form.currency_position === v)}>{label}</button>
               ))}
             </div>
           </Field>
           <div className="rounded-2xl bg-surface2 border border-line p-4 text-center">
-            <div className="text-muted text-xs">Preview</div>
+            <div className="text-muted text-xs">{t('settings.preview')}</div>
             <div className="font-display text-3xl font-bold text-ember tnum mt-1">{preview(form)}</div>
           </div>
         </Section>
 
         {/* Printer */}
-        <Section title="Printer">
-          <Field label="Receipt printer">
+        <Section title={t('settings.printer')}>
+          <Field label={t('settings.receiptPrinter')}>
             <select className="input" value={form.printer_name} onChange={(e) => set('printer_name', e.target.value)}>
-              <option value="">System default / ask each time</option>
-              {printers.map((p) => <option key={p.name} value={p.name}>{p.displayName}{p.isDefault ? ' (default)' : ''}</option>)}
+              <option value="">{t('settings.printerDefault')}</option>
+              {printers.map((p) => <option key={p.name} value={p.name}>{p.displayName}{p.isDefault ? t('settings.defaultSuffix') : ''}</option>)}
             </select>
           </Field>
-          <Field label="Printing mode">
+          <Field label={t('settings.printingMode')}>
             <div className="grid grid-cols-2 gap-2">
-              {[['0', 'Show dialog'], ['1', 'Print silently']].map(([v, label]) => (
+              {[['0', t('settings.showDialog')], ['1', t('settings.printSilently')]].map(([v, label]) => (
                 <button key={v} onClick={() => set('print_silent', v)} className={btn(form.print_silent === v)}>{label}</button>
               ))}
             </div>
-            <p className="text-muted text-xs mt-2">
-              Silent printing sends straight to the selected printer (best for a thermal printer). "Show dialog" lets you choose a printer or print to PDF each time.
-            </p>
+            <p className="text-muted text-xs mt-2">{t('settings.printerHint')}</p>
           </Field>
         </Section>
       </div>
@@ -209,6 +203,7 @@ function Field({ label, children }) {
 function BackupSection() {
   const { status } = useLicense()
   const { confirm, alert } = useDialog()
+  const { t } = useT()
   const [busy, setBusy] = useState(false)
   const licensed = status?.state === 'licensed'
 
@@ -216,9 +211,9 @@ function BackupSection() {
     setBusy(true)
     try {
       const res = await api.db.export()
-      if (res?.ok) alert({ title: 'Backup saved', message: res.path })
+      if (res?.ok) alert({ title: t('settings.backupSaved'), message: res.path })
     } catch (e) {
-      alert({ title: 'Export failed', message: e.message })
+      alert({ title: t('settings.exportFailed'), message: e.message })
     } finally {
       setBusy(false)
     }
@@ -226,11 +221,10 @@ function BackupSection() {
 
   const doImport = async () => {
     const ok = await confirm({
-      title: 'Import database',
-      message:
-        'This replaces ALL current data with the chosen backup and restarts the app. A copy of the current data is saved first. Continue?',
-      confirmText: 'Choose file & import',
-      cancelText: 'Cancel',
+      title: t('settings.importTitle'),
+      message: t('settings.importMsg'),
+      confirmText: t('settings.importConfirm'),
+      cancelText: t('common.cancel'),
       danger: true
     })
     if (!ok) return
@@ -238,27 +232,22 @@ function BackupSection() {
     try {
       await api.db.import() // on success the app relaunches; cancel/error returns here
     } catch (e) {
-      alert({ title: 'Import failed', message: e.message })
+      alert({ title: t('settings.importFailed'), message: e.message })
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <Section title="Backup & restore">
+    <Section title={t('settings.backup')}>
       {!licensed ? (
-        <p className="text-muted text-sm">
-          Database backup and restore require an active license. Activate a license to enable it.
-        </p>
+        <p className="text-muted text-sm">{t('settings.backupNeedLicense')}</p>
       ) : (
         <>
-          <p className="text-muted text-sm">
-            Export saves a complete copy of your data — products, sales, users and settings — to a file you choose. Import
-            replaces all current data with a backup and restarts the app.
-          </p>
+          <p className="text-muted text-sm">{t('settings.backupDesc')}</p>
           <div className="grid grid-cols-2 gap-3">
-            <button className="btn-accent" disabled={busy} onClick={doExport}>Export backup</button>
-            <button className="btn-ghost" disabled={busy} onClick={doImport}>Import backup</button>
+            <button className="btn-accent" disabled={busy} onClick={doExport}>{t('settings.exportBackup')}</button>
+            <button className="btn-ghost" disabled={busy} onClick={doImport}>{t('settings.importBackup')}</button>
           </div>
         </>
       )}
@@ -268,6 +257,7 @@ function BackupSection() {
 
 function LicenseSection() {
   const { status, activate } = useLicense()
+  const { t } = useT()
   const [license, setLicense] = useState('')
   const [msg, setMsg] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -279,7 +269,7 @@ function LicenseSection() {
     try {
       await activate(license.trim())
       setLicense('')
-      setMsg({ ok: true, text: 'License activated' })
+      setMsg({ ok: true, text: t('settings.licenseActivated') })
     } catch (e) {
       setMsg({ ok: false, text: e.message })
     } finally {
@@ -287,35 +277,35 @@ function LicenseSection() {
     }
   }
 
-  const labels = { licensed: 'Licensed', trial: 'Trial', unlicensed: 'Not licensed', expired: 'Expired' }
+  const labels = { licensed: t('settings.licLicensed'), trial: t('settings.licTrial'), unlicensed: t('settings.licUnlicensed'), expired: t('settings.licExpired') }
   const chip =
     status?.state === 'licensed' ? 'bg-mint/15 text-mint' : status?.state === 'trial' ? 'bg-ember/15 text-ember' : 'bg-berry/20 text-berry'
 
   return (
-    <Section title="License">
+    <Section title={t('settings.license')}>
       <div className="flex items-center flex-wrap gap-2 text-sm">
         <span className={`chip ${chip}`}>{labels[status?.state] || '—'}</span>
-        {status?.state === 'trial' && <span className="text-muted">{status.daysLeft} days left</span>}
+        {status?.state === 'trial' && <span className="text-muted">{t('settings.daysLeft', { n: status.daysLeft })}</span>}
         {status?.name && <span className="text-muted">· {status.name}</span>}
-        {status?.exp && <span className="text-muted">· expires {new Date(status.exp).toLocaleDateString()}</span>}
+        {status?.exp && <span className="text-muted">· {t('settings.expires', { date: new Date(status.exp).toLocaleDateString() })}</span>}
       </div>
-      <Field label="Machine ID (send to vendor for a license)">
+      <Field label={t('settings.machineId')}>
         <div className="flex items-center gap-2">
           <code className="font-display tnum flex-1 break-all">{status?.machineId || '…'}</code>
-          <button className="btn-ghost py-2 px-3" onClick={() => navigator.clipboard?.writeText(status?.machineId || '')}>Copy</button>
+          <button className="btn-ghost py-2 px-3" onClick={() => navigator.clipboard?.writeText(status?.machineId || '')}>{t('settings.copy')}</button>
         </div>
       </Field>
-      <Field label="Enter / renew license">
+      <Field label={t('settings.enterLicense')}>
         <textarea
           className="input font-mono text-sm h-24 resize-none"
           value={license}
-          placeholder="paste license here"
+          placeholder={t('settings.pasteLicense')}
           onChange={(e) => setLicense(e.target.value)}
         />
       </Field>
       {msg && <p className={`text-sm ${msg.ok ? 'text-mint' : 'text-berry'}`}>{msg.text}</p>}
       <button className="btn-accent" disabled={!license.trim() || busy} onClick={apply}>
-        {busy ? 'Activating…' : 'Activate license'}
+        {busy ? t('settings.activating') : t('settings.activateLicense')}
       </button>
     </Section>
   )
