@@ -62,6 +62,7 @@ export default function Products() {
     setProducts(prods)
   }
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async fetch on mount; setState runs after the awaits resolve
     loadAll()
   }, [])
 

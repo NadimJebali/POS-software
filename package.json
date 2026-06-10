@@ -11,7 +11,11 @@
     "start": "electron-vite preview",
     "icon": "node scripts/make-icon.mjs",
     "license:exe": "node tools/build-license-exe.mjs",
-    "dist": "electron-vite build && electron-builder"
+    "dist": "electron-vite build && electron-builder",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "format": "prettier --write ."
   },
   "dependencies": {
     "@fontsource-variable/bricolage-grotesque": "^5.2.10",
@@ -22,16 +26,23 @@
     "sql.js": "^1.12.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
     "@resvg/resvg-js": "^2.6.2",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "electron": "^33.2.1",
     "electron-builder": "^25.1.8",
     "electron-vite": "^2.3.0",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.6.0",
     "png-to-ico": "^3.0.1",
     "postcss": "^8.4.49",
+    "prettier": "^3.8.4",
     "tailwindcss": "^3.4.17",
-    "vite": "^5.4.11"
+    "vite": "^5.4.11",
+    "vitest": "^4.1.8"
   },
   "build": {
     "appId": "com.vinny.possoftware",

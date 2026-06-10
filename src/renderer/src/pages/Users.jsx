@@ -5,7 +5,7 @@ import { useT } from '../lib/i18n'
 import PageHeader from '../components/PageHeader'
 import Modal from '../components/Modal'
 import { useDialog } from '../components/Dialog'
-import { IconPlus, IconTrash } from '../components/icons'
+import { IconPlus } from '../components/icons'
 
 export default function Users() {
   const { user: me } = useAuth()

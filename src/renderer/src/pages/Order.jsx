@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../lib/api'
-import { money, unitsToMillis, useSettings } from '../lib/settings'
+import { money, useSettings } from '../lib/settings'
 import { useT } from '../lib/i18n'
 import Modal from '../components/Modal'
 import ProductCard from '../components/ProductCard'
@@ -40,6 +40,7 @@ export default function Order() {
       setCategories(cats)
       if (cats.length) setActiveCat(cats[0].id)
     })
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async fetch on mount; setState runs after the await resolves
     refreshStock()
   }, [tableId])
 

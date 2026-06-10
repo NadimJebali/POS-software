@@ -169,17 +169,22 @@ const DISCOUNTS = [0, 5, 10, 15]
 
 function OrderDetail({ order, isAdmin, canDelete, onClose, onReprint, printing, onCancel, onSave }) {
   const { t } = useT()
+  const initialQty = () => Object.fromEntries(order.items.map((i) => [i.id, i.qty]))
   const [edit, setEdit] = useState(false)
-  const [qty, setQty] = useState({})
+  const [qty, setQty] = useState(initialQty)
   const [disc, setDisc] = useState(null) // null = keep existing; number = percent
   const when = new Date(order.paid_at + 'Z').toLocaleString()
   const deleted = order.status === 'cancelled'
 
-  useEffect(() => {
-    setQty(Object.fromEntries(order.items.map((i) => [i.id, i.qty])))
+  // Reset the edit state whenever a different order object arrives (opening another
+  // order, or the refreshed copy after a save) — done during render, not in an effect.
+  const [prevOrder, setPrevOrder] = useState(order)
+  if (order !== prevOrder) {
+    setPrevOrder(order)
+    setQty(initialQty())
     setDisc(null)
     setEdit(false)
-  }, [order])
+  }
 
   const q = (it) => (edit ? qty[it.id] ?? it.qty : it.qty)
   const subtotal = order.items.reduce((s, it) => s + it.unit_price * q(it), 0)
