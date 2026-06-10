@@ -36,21 +36,41 @@ export default function Checkout() {
   // so the cashier sees the change to return before completing the sale.
   const projectedPaid = order.paid + amount
   const remaining = Math.max(0, order.total - projectedPaid)
-  const change = Math.max(0, projectedPaid - order.total)
+  // Change can only be returned from physically tendered cash (mirrors the rule
+  // enforced in orders:complete) — a card overpayment earns no change.
+  const projectedCash =
+    order.payments.filter((p) => p.method === 'cash').reduce((s, p) => s + p.amount, 0) + (method === 'cash' ? amount : 0)
+  const change = Math.max(0, Math.min(projectedPaid - order.total, projectedCash))
   const setExact = () => setAmountStr((Math.max(0, order.total - order.paid) / 1000).toFixed(dec))
   const addQuick = (units) => setAmountStr(((amount + units * 1000) / 1000).toFixed(dec))
 
+  const showError = (message) => alert({ title: t('common.error'), message })
+
   const setDiscount = async (type, value) => {
-    setOrder(await api.orders.setDiscount(order.id, type, value))
-    setDiscountModal(false)
+    try {
+      setOrder(await api.orders.setDiscount(order.id, type, value))
+      setDiscountModal(false)
+    } catch (e) {
+      showError(e.message)
+    }
   }
 
   const addPayment = async () => {
     if (amount <= 0) return
-    setOrder(await api.orders.addPayment(order.id, method, amount))
-    setAmountStr('')
+    try {
+      setOrder(await api.orders.addPayment(order.id, method, amount))
+      setAmountStr('')
+    } catch (e) {
+      showError(e.message)
+    }
   }
-  const removePayment = async (id) => setOrder(await api.orders.removePayment(id))
+  const removePayment = async (id) => {
+    try {
+      setOrder(await api.orders.removePayment(id))
+    } catch (e) {
+      showError(e.message)
+    }
+  }
 
   const complete = async () => {
     setBusy(true)

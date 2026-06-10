@@ -16,9 +16,9 @@ const getSQL = () => (sqlPromise ||= initSqlJs({ wasmBinary: readFileSync(resolv
 
 const stamp = () => new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-')
 
-// Save a copy of the live database to a location the user chooses. The on-disk
-// pos.db is always current (written on every change), so a file copy is enough.
-export async function exportDatabase() {
+// Save a copy of the live database to a location the user chooses. Disk writes
+// are debounced, so flush the running adapter first to make pos.db current.
+export async function exportDatabase(db) {
   const opts = {
     title: 'Export database backup',
     defaultPath: `pos-backup-${stamp()}.db`,
@@ -27,6 +27,7 @@ export async function exportDatabase() {
   const win = mainWindow()
   const { canceled, filePath } = await (win ? dialog.showSaveDialog(win, opts) : dialog.showSaveDialog(opts))
   if (canceled || !filePath) return { ok: false, canceled: true }
+  if (db) db.flush()
   copyFileSync(dbPath(), filePath)
   return { ok: true, path: filePath }
 }
@@ -48,6 +49,7 @@ export async function importDatabase(db) {
   await validate(readFileSync(source))
 
   const target = dbPath()
+  if (db) db.flush() // make the on-disk copy current before snapshotting it
   if (existsSync(target)) copyFileSync(target, `${target}.pre-import-${stamp()}.bak`) // safety net
   if (db) db.detach()
   copyFileSync(source, target)

@@ -55,6 +55,19 @@ export function registerIpc(db) {
     return n
   }
 
+  // Boundary validation for required text fields: trims and rejects empty values
+  // with a friendly message instead of a raw NOT NULL constraint error.
+  const textIn = (value, name) => {
+    const s = String(value ?? '').trim()
+    if (!s) throw new Error(`${name} is required`)
+    return s
+  }
+
+  // Runs a handler body inside a single transaction: multi-statement writes either
+  // all land or none do, and the database is exported to disk once, not per statement.
+  // Don't nest — the adapter's transaction() issues a plain BEGIN/COMMIT.
+  const inTx = (fn) => db.transaction(fn)()
+
   // Backup/restore is a licensed-only feature — a trial or unlicensed copy can't use it.
   const requireLicensed = () => {
     if (licenseStatus().state !== 'licensed') {
@@ -115,7 +128,7 @@ export function registerIpc(db) {
     // ---------------- Backup / restore (activated license only) ----------------
     'db:export': () => {
       requireLicensed()
-      return exportDatabase()
+      return exportDatabase(db)
     },
     'db:import': () => {
       requireLicensed()
@@ -201,16 +214,16 @@ export function registerIpc(db) {
       const admins = db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'admin' AND active = 1").get().n
       const losingAdmin = user.role === 'admin' && user.active && (role !== 'admin' || active === 0)
       if (losingAdmin && admins <= 1) throw new Error('You cannot remove the last administrator')
-      db.prepare('UPDATE users SET name = ?, role = ?, active = ? WHERE id = ?').run(
-        name || user.name,
-        role === 'admin' ? 'admin' : 'user',
-        active ? 1 : 0,
-        id
-      )
-      if (pin) {
-        if (String(pin).length < 4) throw new Error('PIN must be at least 4 digits')
-        db.prepare('UPDATE users SET pin_hash = ? WHERE id = ?').run(hashPin(pin), id)
-      }
+      if (pin && String(pin).length < 4) throw new Error('PIN must be at least 4 digits')
+      inTx(() => {
+        db.prepare('UPDATE users SET name = ?, role = ?, active = ? WHERE id = ?').run(
+          name || user.name,
+          role === 'admin' ? 'admin' : 'user',
+          active ? 1 : 0,
+          id
+        )
+        if (pin) db.prepare('UPDATE users SET pin_hash = ? WHERE id = ?').run(hashPin(pin), id)
+      })
       return db.prepare('SELECT id, username, name, role, active FROM users WHERE id = ?').get(id)
     },
 
@@ -229,7 +242,9 @@ export function registerIpc(db) {
 
     'settings:set': ({ patch }) => {
       const set = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
-      for (const [key, value] of Object.entries(patch || {})) set.run(key, String(value))
+      inTx(() => {
+        for (const [key, value] of Object.entries(patch || {})) set.run(key, String(value))
+      })
       return getSettings()
     },
 
@@ -246,12 +261,12 @@ export function registerIpc(db) {
     'categories:create': ({ name, color, sort_order }) => {
       const info = db
         .prepare('INSERT INTO categories (name, color, sort_order) VALUES (?, ?, ?)')
-        .run(name, color || '#64748b', sort_order || 0)
+        .run(textIn(name, 'Category name'), color || '#64748b', sort_order || 0)
       return db.prepare('SELECT * FROM categories WHERE id = ?').get(info.lastInsertRowid)
     },
 
     'categories:update': ({ id, name, color, sort_order }) => {
-      db.prepare('UPDATE categories SET name = ?, color = ?, sort_order = ? WHERE id = ?').run(name, color, sort_order || 0, id)
+      db.prepare('UPDATE categories SET name = ?, color = ?, sort_order = ? WHERE id = ?').run(textIn(name, 'Category name'), color, sort_order || 0, id)
       return db.prepare('SELECT * FROM categories WHERE id = ?').get(id)
     },
 
@@ -296,14 +311,14 @@ export function registerIpc(db) {
       const safeStock = intIn(stock || 0, { name: 'Stock' })
       const info = db
         .prepare('INSERT INTO products (category_id, name, price, color, stock, barcode, image) VALUES (?, ?, ?, ?, ?, ?, ?)')
-        .run(category_id, name, safePrice, color || null, safeStock, barcode || null, image || null)
+        .run(category_id, textIn(name, 'Product name'), safePrice, color || null, safeStock, barcode || null, image || null)
       return db.prepare('SELECT * FROM products WHERE id = ?').get(info.lastInsertRowid)
     },
 
     'products:update': ({ id, category_id, name, price, color, active, stock, barcode, image }) => {
       db.prepare('UPDATE products SET category_id = ?, name = ?, price = ?, color = ?, active = ?, stock = ?, barcode = ?, image = ? WHERE id = ?').run(
         category_id,
-        name,
+        textIn(name, 'Product name'),
         intIn(price, { name: 'Price' }),
         color || null,
         active ? 1 : 0,
@@ -329,7 +344,7 @@ export function registerIpc(db) {
     'modgroups:create': ({ product_id, name, required, multi }) => {
       const info = db
         .prepare('INSERT INTO modifier_groups (product_id, name, required, multi) VALUES (?, ?, ?, ?)')
-        .run(product_id, name, required ? 1 : 0, multi ? 1 : 0)
+        .run(product_id, textIn(name, 'Group name'), required ? 1 : 0, multi ? 1 : 0)
       return db.prepare('SELECT * FROM modifier_groups WHERE id = ?').get(info.lastInsertRowid)
     },
     'modgroups:remove': ({ id }) => {
@@ -339,7 +354,7 @@ export function registerIpc(db) {
     'modoptions:create': ({ group_id, name, price_delta }) => {
       const info = db
         .prepare('INSERT INTO modifier_options (group_id, name, price_delta) VALUES (?, ?, ?)')
-        .run(group_id, name, Math.round(price_delta || 0))
+        .run(group_id, textIn(name, 'Option name'), Math.round(price_delta || 0))
       return db.prepare('SELECT * FROM modifier_options WHERE id = ?').get(info.lastInsertRowid)
     },
     'modoptions:remove': ({ id }) => {
@@ -382,10 +397,12 @@ export function registerIpc(db) {
     'tables:remove': ({ id }) => {
       // Discard any unpaid order on this table so it can always be removed.
       // (Paid orders keep their table_label for history via ON DELETE SET NULL.)
-      const openOrders = db.prepare("SELECT id FROM orders WHERE table_id = ? AND status = 'open'").all(id)
-      for (const o of openOrders) restoreOrderStock(o.id) // return their reserved stock
-      db.prepare("DELETE FROM orders WHERE table_id = ? AND status = 'open'").run(id)
-      db.prepare('DELETE FROM tables WHERE id = ?').run(id)
+      inTx(() => {
+        const openOrders = db.prepare("SELECT id FROM orders WHERE table_id = ? AND status = 'open'").all(id)
+        for (const o of openOrders) restoreOrderStock(o.id) // return their reserved stock
+        db.prepare("DELETE FROM orders WHERE table_id = ? AND status = 'open'").run(id)
+        db.prepare('DELETE FROM tables WHERE id = ?').run(id)
+      })
       return { ok: true }
     },
 
@@ -397,16 +414,18 @@ export function registerIpc(db) {
       if (!order) {
         const table = db.prepare('SELECT * FROM tables WHERE id = ?').get(tableId)
         // Attribute the order to whoever is signed in (the server taking it).
-        const info = db
-          .prepare("INSERT INTO orders (table_id, table_label, status, user_id, user_name) VALUES (?, ?, 'open', ?, ?)")
-          .run(
-            tableId,
-            table ? table.label : null,
-            currentUser ? currentUser.id : null,
-            currentUser ? currentUser.name || currentUser.username : null
-          )
-        db.prepare("UPDATE tables SET status = 'occupied' WHERE id = ?").run(tableId)
-        order = db.prepare('SELECT * FROM orders WHERE id = ?').get(info.lastInsertRowid)
+        order = inTx(() => {
+          const info = db
+            .prepare("INSERT INTO orders (table_id, table_label, status, user_id, user_name) VALUES (?, ?, 'open', ?, ?)")
+            .run(
+              tableId,
+              table ? table.label : null,
+              currentUser ? currentUser.id : null,
+              currentUser ? currentUser.name || currentUser.username : null
+            )
+          db.prepare("UPDATE tables SET status = 'occupied' WHERE id = ?").run(tableId)
+          return db.prepare('SELECT * FROM orders WHERE id = ?').get(info.lastInsertRowid)
+        })
       }
       return getOrderWithItems(order.id)
     },
@@ -418,18 +437,20 @@ export function registerIpc(db) {
       if (!product) throw new Error('Product not found')
       if (product.stock < 1) throw new Error(`Not enough stock for ${product.name}`)
       const existing = db.prepare('SELECT * FROM order_items WHERE order_id = ? AND product_id = ?').get(orderId, productId)
-      if (existing) {
-        db.prepare('UPDATE order_items SET qty = qty + 1 WHERE id = ?').run(existing.id)
-      } else {
-        db.prepare('INSERT INTO order_items (order_id, product_id, name, unit_price, qty) VALUES (?, ?, ?, ?, 1)').run(
-          orderId,
-          productId,
-          product.name,
-          product.price
-        )
-      }
-      db.prepare('UPDATE products SET stock = stock - 1 WHERE id = ?').run(productId) // reserve the unit
-      recalcOrder(orderId)
+      inTx(() => {
+        if (existing) {
+          db.prepare('UPDATE order_items SET qty = qty + 1 WHERE id = ?').run(existing.id)
+        } else {
+          db.prepare('INSERT INTO order_items (order_id, product_id, name, unit_price, qty) VALUES (?, ?, ?, ?, 1)').run(
+            orderId,
+            productId,
+            product.name,
+            product.price
+          )
+        }
+        db.prepare('UPDATE products SET stock = stock - 1 WHERE id = ?').run(productId) // reserve the unit
+        recalcOrder(orderId)
+      })
       return getOrderWithItems(orderId)
     },
 
@@ -449,37 +470,43 @@ export function registerIpc(db) {
         delta = opts.reduce((s, o) => s + o.price_delta, 0)
         label = opts.map((o) => o.name).join(', ')
       }
-      db.prepare(
-        'INSERT INTO order_items (order_id, product_id, name, unit_price, qty, modifiers) VALUES (?, ?, ?, ?, 1, ?)'
-      ).run(orderId, productId, product.name, product.price + delta, label || null)
-      db.prepare('UPDATE products SET stock = stock - 1 WHERE id = ?').run(productId) // reserve the unit
-      recalcOrder(orderId)
+      inTx(() => {
+        db.prepare(
+          'INSERT INTO order_items (order_id, product_id, name, unit_price, qty, modifiers) VALUES (?, ?, ?, ?, 1, ?)'
+        ).run(orderId, productId, product.name, product.price + delta, label || null)
+        db.prepare('UPDATE products SET stock = stock - 1 WHERE id = ?').run(productId) // reserve the unit
+        recalcOrder(orderId)
+      })
       return getOrderWithItems(orderId)
     },
 
     'orders:setItemQty': ({ itemId, qty }) => {
       const item = db.prepare('SELECT * FROM order_items WHERE id = ?').get(itemId)
       if (!item) throw new Error('Item not found')
-      const newQty = Math.max(0, qty)
+      const newQty = intIn(qty, { min: 0, name: 'Quantity' })
       const delta = newQty - item.qty // positive => reserve more units
       if (delta > 0 && item.product_id) {
         const product = db.prepare('SELECT name, stock FROM products WHERE id = ?').get(item.product_id)
         if (!product || product.stock < delta) throw new Error(`Not enough stock${product ? ' for ' + product.name : ''}`)
       }
-      if (newQty <= 0) db.prepare('DELETE FROM order_items WHERE id = ?').run(itemId)
-      else db.prepare('UPDATE order_items SET qty = ? WHERE id = ?').run(newQty, itemId)
-      // Reserve the extra units (delta > 0) or return the freed ones (delta < 0).
-      if (item.product_id && delta !== 0) db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?').run(delta, item.product_id)
-      recalcOrder(item.order_id)
+      inTx(() => {
+        if (newQty <= 0) db.prepare('DELETE FROM order_items WHERE id = ?').run(itemId)
+        else db.prepare('UPDATE order_items SET qty = ? WHERE id = ?').run(newQty, itemId)
+        // Reserve the extra units (delta > 0) or return the freed ones (delta < 0).
+        if (item.product_id && delta !== 0) db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?').run(delta, item.product_id)
+        recalcOrder(item.order_id)
+      })
       return getOrderWithItems(item.order_id)
     },
 
     'orders:removeItem': ({ itemId }) => {
       const item = db.prepare('SELECT * FROM order_items WHERE id = ?').get(itemId)
       if (!item) return null
-      if (item.product_id) db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?').run(item.qty, item.product_id) // return reserved stock
-      db.prepare('DELETE FROM order_items WHERE id = ?').run(itemId)
-      recalcOrder(item.order_id)
+      inTx(() => {
+        if (item.product_id) db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?').run(item.qty, item.product_id) // return reserved stock
+        db.prepare('DELETE FROM order_items WHERE id = ?').run(itemId)
+        recalcOrder(item.order_id)
+      })
       return getOrderWithItems(item.order_id)
     },
 
@@ -494,21 +521,30 @@ export function registerIpc(db) {
       if (type === 'percent') discount = Math.round((subtotal * amount) / 100)
       else discount = Math.round(amount)
       discount = Math.max(0, Math.min(discount, subtotal))
-      db.prepare('UPDATE orders SET discount = ? WHERE id = ?').run(discount, orderId)
-      recalcOrder(orderId)
+      inTx(() => {
+        db.prepare('UPDATE orders SET discount = ? WHERE id = ?').run(discount, orderId)
+        recalcOrder(orderId)
+      })
       return getOrderWithItems(orderId)
     },
 
     'orders:void': ({ orderId }) => {
       const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId)
-      if (order && order.status === 'open') restoreOrderStock(orderId) // put reserved stock back
-      if (order && order.table_id) db.prepare("UPDATE tables SET status = 'open' WHERE id = ?").run(order.table_id)
-      db.prepare('DELETE FROM orders WHERE id = ?').run(orderId)
+      inTx(() => {
+        if (order && order.status === 'open') restoreOrderStock(orderId) // put reserved stock back
+        if (order && order.table_id) db.prepare("UPDATE tables SET status = 'open' WHERE id = ?").run(order.table_id)
+        db.prepare('DELETE FROM orders WHERE id = ?').run(orderId)
+      })
       return { ok: true }
     },
 
     // ---- split / partial payments ----
+    // Payments may only be attached to (or removed from) orders that are still open —
+    // a stale checkout screen must not be able to alter a settled order's money.
     'orders:addPayment': ({ orderId, method, amount }) => {
+      const order = db.prepare('SELECT id, status FROM orders WHERE id = ?').get(orderId)
+      if (!order) throw new Error('Order not found')
+      if (order.status !== 'open') throw new Error('This order has already been settled')
       const safeAmount = intIn(amount, { min: 1, name: 'Payment amount' })
       db.prepare('INSERT INTO payments (order_id, method, amount) VALUES (?, ?, ?)').run(orderId, method || 'cash', safeAmount)
       return getOrderWithItems(orderId)
@@ -517,23 +553,29 @@ export function registerIpc(db) {
     'orders:removePayment': ({ paymentId }) => {
       const p = db.prepare('SELECT * FROM payments WHERE id = ?').get(paymentId)
       if (!p) return null
+      const order = db.prepare('SELECT status FROM orders WHERE id = ?').get(p.order_id)
+      if (order && order.status !== 'open') throw new Error('This order has already been settled')
       db.prepare('DELETE FROM payments WHERE id = ?').run(paymentId)
       return getOrderWithItems(p.order_id)
     },
 
-    // Finalize: requires payments to cover the total. Records change from cash overpayment.
+    // Finalize: requires payments to cover the total. Change can only be returned
+    // from physically tendered cash — a card overpayment earns no change.
     'orders:complete': ({ orderId }) => {
       const order = getOrderWithItems(orderId)
       if (!order) throw new Error('Order not found')
+      if (order.status !== 'open') throw new Error('This order has already been settled')
       if (order.paid < order.total) throw new Error('Payments do not cover the total')
       const cash = order.payments.filter((p) => p.method === 'cash').reduce((s, p) => s + p.amount, 0)
-      const change = Math.max(0, order.paid - order.total)
-      db.prepare(
-        "UPDATE orders SET status = 'paid', cash_received = ?, change_due = ?, paid_at = datetime('now') WHERE id = ?"
-      ).run(cash, change, orderId)
-      // Stock was already reserved when each item was added to the order, so there's
-      // nothing to draw down here — the units simply convert from reserved to sold.
-      if (order.table_id) db.prepare("UPDATE tables SET status = 'open' WHERE id = ?").run(order.table_id)
+      const change = Math.max(0, Math.min(order.paid - order.total, cash))
+      inTx(() => {
+        db.prepare(
+          "UPDATE orders SET status = 'paid', cash_received = ?, change_due = ?, paid_at = datetime('now') WHERE id = ?"
+        ).run(cash, change, orderId)
+        // Stock was already reserved when each item was added to the order, so there's
+        // nothing to draw down here — the units simply convert from reserved to sold.
+        if (order.table_id) db.prepare("UPDATE tables SET status = 'open' WHERE id = ?").run(order.table_id)
+      })
       return getOrderWithItems(orderId)
     },
 
@@ -546,9 +588,11 @@ export function registerIpc(db) {
       if (!order) throw new Error('Order not found')
       if (order.status !== 'paid') throw new Error('Only paid orders can be deleted')
       const inc = db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?')
-      for (const it of order.items) if (it.product_id) inc.run(it.qty, it.product_id)
       const by = currentUser ? currentUser.name || currentUser.username : 'Unknown'
-      db.prepare("UPDATE orders SET status = 'cancelled', deleted_at = datetime('now'), deleted_by = ? WHERE id = ?").run(by, orderId)
+      inTx(() => {
+        for (const it of order.items) if (it.product_id) inc.run(it.qty, it.product_id)
+        db.prepare("UPDATE orders SET status = 'cancelled', deleted_at = datetime('now'), deleted_by = ? WHERE id = ?").run(by, orderId)
+      })
       return { ok: true }
     },
 
@@ -576,32 +620,34 @@ export function registerIpc(db) {
       }
 
       const adjust = db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?')
-      for (const change of items || []) {
-        const item = db.prepare('SELECT * FROM order_items WHERE id = ? AND order_id = ?').get(change.id, orderId)
-        if (!item) continue
-        const newQty = Math.max(0, Math.round(change.qty))
-        const delta = item.qty - newQty // positive => return stock
-        if (delta !== 0 && item.product_id) adjust.run(delta, item.product_id)
-        if (newQty === 0) db.prepare('DELETE FROM order_items WHERE id = ?').run(item.id)
-        else db.prepare('UPDATE order_items SET qty = ? WHERE id = ?').run(newQty, item.id)
-      }
-      // Recompute subtotal -> discount -> total, and refresh change.
-      const { subtotal } = db
-        .prepare('SELECT COALESCE(SUM(unit_price * qty),0) AS subtotal FROM order_items WHERE order_id = ?')
-        .get(orderId)
-      let discount = order.discount
-      if (discountType === 'percent') discount = Math.round((subtotal * Number(discountValue)) / 100)
-      else if (discountType === 'amount') discount = Math.round(Number(discountValue))
-      discount = Math.max(0, Math.min(discount, subtotal))
-      const total = subtotal - discount
-      const paidRow = db.prepare('SELECT COALESCE(SUM(amount),0) AS paid FROM payments WHERE order_id = ?').get(orderId)
-      db.prepare('UPDATE orders SET subtotal = ?, discount = ?, total = ?, change_due = ? WHERE id = ?').run(
-        subtotal,
-        discount,
-        total,
-        Math.max(0, paidRow.paid - total),
-        orderId
-      )
+      inTx(() => {
+        for (const change of items || []) {
+          const item = db.prepare('SELECT * FROM order_items WHERE id = ? AND order_id = ?').get(change.id, orderId)
+          if (!item) continue
+          const newQty = Math.max(0, Math.round(change.qty))
+          const delta = item.qty - newQty // positive => return stock
+          if (delta !== 0 && item.product_id) adjust.run(delta, item.product_id)
+          if (newQty === 0) db.prepare('DELETE FROM order_items WHERE id = ?').run(item.id)
+          else db.prepare('UPDATE order_items SET qty = ? WHERE id = ?').run(newQty, item.id)
+        }
+        // Recompute subtotal -> discount -> total, and refresh change.
+        const { subtotal } = db
+          .prepare('SELECT COALESCE(SUM(unit_price * qty),0) AS subtotal FROM order_items WHERE order_id = ?')
+          .get(orderId)
+        let discount = order.discount
+        if (discountType === 'percent') discount = Math.round((subtotal * Number(discountValue)) / 100)
+        else if (discountType === 'amount') discount = Math.round(Number(discountValue))
+        discount = Math.max(0, Math.min(discount, subtotal))
+        const total = subtotal - discount
+        const paidRow = db.prepare('SELECT COALESCE(SUM(amount),0) AS paid FROM payments WHERE order_id = ?').get(orderId)
+        db.prepare('UPDATE orders SET subtotal = ?, discount = ?, total = ?, change_due = ? WHERE id = ?').run(
+          subtotal,
+          discount,
+          total,
+          Math.max(0, paidRow.paid - total),
+          orderId
+        )
+      })
       return getOrderWithItems(orderId)
     },
 
@@ -815,10 +861,11 @@ function periodWhere(period) {
   }
 }
 
-function buildSeries(rows, period) {
+export function buildSeries(rows, period, now = new Date()) {
   const buckets = []
-  const now = new Date()
-  const fmt = (d) => d.toISOString().slice(0, 10)
+  // Local-date key, matching the SQL side's date(paid_at,'localtime'). Using
+  // toISOString here would shift the date for any local time before UTC+offset.
+  const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
   if (period === 'daily') {
     const map = {}
@@ -856,8 +903,12 @@ function buildSeries(rows, period) {
   return buckets
 }
 
-function weekNumber(date) {
-  const start = new Date(date.getFullYear(), 0, 1)
-  const diff = (date - start) / 86400000
-  return Math.floor((diff + start.getDay()) / 7)
+// Week-of-year matching SQLite's strftime('%W'): Monday-based, 00–53, where days
+// before the year's first Monday fall in week 00. Buckets built here must line up
+// with the '%Y-%W' keys coming out of SQL, or the weekly chart reads zero.
+export function weekNumber(date) {
+  const jan1 = new Date(date.getFullYear(), 0, 1)
+  const dayOfYear = Math.floor((date - jan1) / 86400000) // 0-based
+  const mondayDow = (date.getDay() + 6) % 7 // Monday = 0
+  return Math.floor((dayOfYear + 7 - mondayDow) / 7)
 }

@@ -54,13 +54,11 @@ app.whenReady().then(async () => {
   db = await initDatabase()
   registerIpc(db)
   createWindow()
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
-  })
 })
 
+// Single-window kiosk app: closing the window exits everywhere (including macOS —
+// re-opening a window via `activate` would run against the already-closed database).
 app.on('window-all-closed', () => {
   if (db) db.close()
-  if (process.platform !== 'darwin') app.quit()
+  app.quit()
 })

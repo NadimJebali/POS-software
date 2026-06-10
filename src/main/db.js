@@ -45,12 +45,29 @@ export function resolveWasm() {
   return found
 }
 
+// How long to coalesce writes before exporting the database to disk. Each export
+// serializes the whole database, so bursts of writes (one checkout = several
+// statements) are flushed once instead of per-statement.
+const FLUSH_DELAY_MS = 500
+
 // Adapter exposing a better-sqlite3-like synchronous API over sql.js.
 function makeAdapter(sqldb, writeToDisk) {
   let txDepth = 0
   let detached = false
+  let flushTimer = null
+  const flush = () => {
+    if (flushTimer) {
+      clearTimeout(flushTimer)
+      flushTimer = null
+    }
+    if (!detached) writeToDisk()
+  }
   const persist = () => {
-    if (!detached && txDepth === 0) writeToDisk()
+    if (detached || txDepth > 0 || flushTimer) return
+    flushTimer = setTimeout(() => {
+      flushTimer = null
+      if (!detached) writeToDisk()
+    }, FLUSH_DELAY_MS)
   }
   const lastInsertRowid = () => {
     const r = sqldb.exec('SELECT last_insert_rowid() AS id')
@@ -118,13 +135,20 @@ function makeAdapter(sqldb, writeToDisk) {
         }
       }
     },
+    // Force any pending debounced write to disk now. Used before file-level
+    // operations on pos.db (e.g. backup export copies the on-disk file).
+    flush,
     // Stop persisting to disk. Used right before an import replaces the database
     // file, so this outgoing in-memory copy can't overwrite the imported one on quit.
     detach() {
       detached = true
+      if (flushTimer) {
+        clearTimeout(flushTimer)
+        flushTimer = null
+      }
     },
     close() {
-      if (!detached) writeToDisk()
+      flush()
       sqldb.close()
     }
   }
