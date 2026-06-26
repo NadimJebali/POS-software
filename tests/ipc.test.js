@@ -24,7 +24,8 @@ vi.mock('electron', async () => {
 })
 
 import { initDatabase } from '../src/main/db'
-import { registerIpc, buildSeries, weekNumber } from '../src/main/ipc'
+import { registerIpc } from '../src/main/ipc'
+import { buildSeries, weekNumber } from '../src/main/analytics'
 
 let db
 let invoke

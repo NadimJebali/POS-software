@@ -6,6 +6,7 @@ import { exportDatabase, importDatabase } from './backup'
 import { exportAnalyticsPdf } from './report'
 import { mt } from './i18n'
 import { createOrders } from './orders'
+import { createAnalytics } from './analytics'
 
 // Channels callable without being signed in (licensing + the login flow itself).
 // Everything else requires an authenticated session — enforced in the dispatcher.
@@ -94,6 +95,10 @@ export function registerIpc(db) {
   // boundary validation (numeric coercion, auth/role, session attribution) here,
   // domain rules (stock reservation, discount clamp, change calc) behind one interface.
   const orderDomain = createOrders(db)
+
+  // Analytics queries live in their own module; the handlers pass the session
+  // scope (ownOrders) and the live clock in.
+  const analytics = createAnalytics(db)
 
   const handlers = {
     // ---------------- Licensing ----------------
@@ -447,66 +452,21 @@ export function registerIpc(db) {
     },
 
     // ---------------- Analytics ----------------
-    'analytics:overview': () => {
-      const q = (cond) =>
-        db
-          .prepare(`SELECT COALESCE(SUM(total),0) AS total, COUNT(*) AS count FROM orders WHERE status = 'paid' AND ${ownOrders('orders')} AND ${cond}`)
-          .get()
-      return {
-        today: q("date(paid_at,'localtime') = date('now','localtime')"),
-        week: q("strftime('%Y-%W', paid_at,'localtime') = strftime('%Y-%W','now','localtime')"),
-        month: q("strftime('%Y-%m', paid_at,'localtime') = strftime('%Y-%m','now','localtime')"),
-        year: q("strftime('%Y', paid_at,'localtime') = strftime('%Y','now','localtime')")
-      }
-    },
+    // Handlers supply the session scope (ownOrders) + live clock; the analytics
+    // module owns the period->SQL mapping, the queries, and the bucketing.
+    'analytics:overview': () => analytics.overview(ownOrders('orders')),
 
-    'analytics:series': ({ period }) => {
-      const rows = db
-        .prepare(
-          `SELECT date(paid_at,'localtime') AS d, strftime('%Y-%W', paid_at,'localtime') AS w,
-                  strftime('%Y-%m', paid_at,'localtime') AS m, strftime('%Y', paid_at,'localtime') AS y, total
-           FROM orders WHERE status = 'paid' AND ${ownOrders('orders')}`
-        )
-        .all()
-      return buildSeries(rows, period)
-    },
+    'analytics:series': ({ period }) => analytics.series(period, ownOrders('orders'), new Date()),
 
-    'analytics:topProducts': ({ period }) => {
-      const where = periodWhere(period)
-      return db
-        .prepare(
-          `SELECT oi.name AS name, SUM(oi.qty) AS qty, SUM(oi.qty * oi.unit_price) AS revenue
-           FROM order_items oi JOIN orders o ON o.id = oi.order_id
-           WHERE o.status = 'paid' AND ${ownOrders('o')} AND ${where}
-           GROUP BY oi.name ORDER BY revenue DESC LIMIT 10`
-        )
-        .all()
-    },
+    'analytics:topProducts': ({ period }) => analytics.topProducts(period, ownOrders('o')),
 
-    // Sales grouped by the user who served each order, for the given period.
-    'analytics:byServer': ({ period }) => {
-      const where = periodWhere(period)
-      return db
-        .prepare(
-          `SELECT COALESCE(o.user_name, 'Unknown') AS name, COUNT(*) AS orders, COALESCE(SUM(o.total),0) AS revenue
-           FROM orders o WHERE o.status = 'paid' AND ${ownOrders('o')} AND ${where}
-           GROUP BY COALESCE(o.user_name, 'Unknown') ORDER BY revenue DESC`
-        )
-        .all()
-    },
+    'analytics:byServer': ({ period }) => analytics.byServer(period, ownOrders('o')),
 
-    'analytics:recentOrders': () =>
-      db
-        .prepare(
-          `SELECT id, table_label, total, cash_received, change_due, paid_at
-           FROM orders WHERE status = 'paid' AND ${ownOrders('orders')} ORDER BY paid_at DESC LIMIT 25`
-        )
-        .all(),
+    'analytics:recentOrders': () => analytics.recentOrders(ownOrders('orders')),
 
-    // Export the analytics as a PDF with caller-chosen parameters: a date range
-    // (from/to as YYYY-MM-DD, or null = all time), an optional staff filter, and
-    // which sections to include. Scope is enforced here — non-admins are always
-    // locked to their own sales regardless of any userId passed in.
+    // Export the analytics as a PDF. Scope is enforced here — non-admins are always
+    // locked to their own sales regardless of any userId passed in. The query work
+    // is the analytics module's; this handler resolves session + labels + i18n.
     'analytics:exportPdf': ({ from, to, userId, sections, rangeLabel, rangeKey, lang }) => {
       const settings = getSettings()
       const reportLang = lang || settings.language || 'en'
@@ -516,52 +476,7 @@ export function registerIpc(db) {
           ? currentUser.id
           : -1
 
-      const conds = ["o.status = 'paid'"]
-      const params = []
-      if (from) {
-        conds.push("date(o.paid_at,'localtime') >= ?")
-        params.push(from)
-      }
-      if (to) {
-        conds.push("date(o.paid_at,'localtime') <= ?")
-        params.push(to)
-      }
-      if (scopedUserId != null) {
-        conds.push('o.user_id = ?')
-        params.push(scopedUserId)
-      }
-      const whereO = conds.join(' AND ')
-
-      const summary = db.prepare(`SELECT COALESCE(SUM(o.total),0) AS total, COUNT(*) AS count FROM orders o WHERE ${whereO}`).get(...params)
-      summary.avg = summary.count ? Math.round(summary.total / summary.count) : 0
-
-      // Day buckets for short ranges, month buckets for long/open-ended ones.
-      const daySpan = from && to ? Math.round((new Date(to) - new Date(from)) / 86400000) : Infinity
-      const byDay = !!from && daySpan <= 62
-      const bucket = byDay ? "date(o.paid_at,'localtime')" : "strftime('%Y-%m', o.paid_at,'localtime')"
-      const trend = db
-        .prepare(`SELECT ${bucket} AS label, COUNT(*) AS count, COALESCE(SUM(o.total),0) AS total FROM orders o WHERE ${whereO} GROUP BY label ORDER BY label`)
-        .all(...params)
-
-      const top = db
-        .prepare(
-          `SELECT oi.name AS name, SUM(oi.qty) AS qty, SUM(oi.qty * oi.unit_price) AS revenue
-           FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE ${whereO}
-           GROUP BY oi.name ORDER BY revenue DESC LIMIT 10`
-        )
-        .all(...params)
-
-      const byServer = db
-        .prepare(
-          `SELECT COALESCE(o.user_name,'Unknown') AS name, COUNT(*) AS orders, COALESCE(SUM(o.total),0) AS revenue
-           FROM orders o WHERE ${whereO} GROUP BY COALESCE(o.user_name,'Unknown') ORDER BY revenue DESC`
-        )
-        .all(...params)
-
-      const methods = db
-        .prepare(`SELECT p.method AS method, COALESCE(SUM(p.amount),0) AS amount FROM payments p JOIN orders o ON o.id = p.order_id WHERE ${whereO} GROUP BY p.method ORDER BY amount DESC`)
-        .all(...params)
-      const change = db.prepare(`SELECT COALESCE(SUM(o.change_due),0) AS c FROM orders o WHERE ${whereO}`).get(...params).c
+      const data = analytics.report({ from, to, scopedUserId })
 
       let scope
       if (!isAdmin()) scope = currentUser ? currentUser.name || currentUser.username : 'You'
@@ -588,12 +503,7 @@ export function registerIpc(db) {
           byServer: want.byServer !== false,
           payments: want.payments !== false
         },
-        summary,
-        trend,
-        trendBy: byDay ? 'day' : 'month',
-        top,
-        byServer,
-        payments: { methods, change },
+        ...data,
         generatedAt: new Date()
       })
     }
@@ -614,70 +524,3 @@ export function registerIpc(db) {
   }
 }
 
-// ---- analytics helpers (pure JS, run in main) ----
-function periodWhere(period) {
-  switch (period) {
-    case 'today':
-      return "date(o.paid_at,'localtime') = date('now','localtime')"
-    case 'week':
-      return "strftime('%Y-%W', o.paid_at,'localtime') = strftime('%Y-%W','now','localtime')"
-    case 'month':
-      return "strftime('%Y-%m', o.paid_at,'localtime') = strftime('%Y-%m','now','localtime')"
-    case 'year':
-      return "strftime('%Y', o.paid_at,'localtime') = strftime('%Y','now','localtime')"
-    default:
-      return '1=1'
-  }
-}
-
-export function buildSeries(rows, period, now = new Date()) {
-  const buckets = []
-  // Local-date key, matching the SQL side's date(paid_at,'localtime'). Using
-  // toISOString here would shift the date for any local time before UTC+offset.
-  const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-
-  if (period === 'daily') {
-    const map = {}
-    rows.forEach((r) => (map[r.d] = (map[r.d] || 0) + r.total))
-    for (let i = 13; i >= 0; i--) {
-      const d = new Date(now)
-      d.setDate(d.getDate() - i)
-      buckets.push({ label: d.toLocaleDateString(undefined, { day: '2-digit', month: 'short' }), total: map[fmt(d)] || 0 })
-    }
-  } else if (period === 'weekly') {
-    const map = {}
-    rows.forEach((r) => (map[r.w] = (map[r.w] || 0) + r.total))
-    for (let i = 7; i >= 0; i--) {
-      const d = new Date(now)
-      d.setDate(d.getDate() - i * 7)
-      const week = String(weekNumber(d)).padStart(2, '0')
-      buckets.push({ label: `W${week}`, total: map[`${d.getFullYear()}-${week}`] || 0 })
-    }
-  } else if (period === 'monthly') {
-    const map = {}
-    rows.forEach((r) => (map[r.m] = (map[r.m] || 0) + r.total))
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      buckets.push({ label: d.toLocaleDateString(undefined, { month: 'short' }), total: map[key] || 0 })
-    }
-  } else if (period === 'yearly') {
-    const map = {}
-    rows.forEach((r) => (map[r.y] = (map[r.y] || 0) + r.total))
-    for (let i = 4; i >= 0; i--) {
-      const year = String(now.getFullYear() - i)
-      buckets.push({ label: year, total: map[year] || 0 })
-    }
-  }
-  return buckets
-}
-
-// Week-of-year matching SQLite's strftime('%W'): Monday-based, 00–53, where days
-// before the year's first Monday fall in week 00. Buckets built here must line up
-// with the '%Y-%W' keys coming out of SQL, or the weekly chart reads zero.
-export function weekNumber(date) {
-  const jan1 = new Date(date.getFullYear(), 0, 1)
-  const dayOfYear = Math.floor((date - jan1) / 86400000) // 0-based
-  const mondayDow = (date.getDay() + 6) % 7 // Monday = 0
-  return Math.floor((dayOfYear + 7 - mondayDow) / 7)
-}
