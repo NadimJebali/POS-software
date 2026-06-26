@@ -23,11 +23,21 @@ export async function initDatabase() {
     renameSync(tmp, dbPath)
   }
 
+  const db = buildDatabase(sqldb, writeToDisk)
+  writeToDisk()
+  return db
+}
+
+/**
+ * Wrap a sql.js handle in the adapter, enable foreign keys, migrate and seed it.
+ * This is the Electron-free seam: tests build an in-memory database with a no-op
+ * `writeToDisk`, production wires it to the per-user pos.db file (see initDatabase).
+ */
+export function buildDatabase(sqldb, writeToDisk = () => {}) {
   const db = makeAdapter(sqldb, writeToDisk)
   db.pragma('foreign_keys = ON')
   migrate(db)
   seedIfEmpty(db)
-  writeToDisk()
   return db
 }
 

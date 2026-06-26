@@ -5,6 +5,7 @@ import { getStatus as licenseStatus, activate as licenseActivate } from './licen
 import { exportDatabase, importDatabase } from './backup'
 import { exportAnalyticsPdf } from './report'
 import { mt } from './i18n'
+import { createOrders } from './orders'
 
 // Channels callable without being signed in (licensing + the login flow itself).
 // Everything else requires an authenticated session — enforced in the dispatcher.
@@ -88,37 +89,11 @@ export function registerIpc(db) {
     return out
   }
 
-  // ---- order math ----
-  // Recomputes subtotal from items, then total = subtotal - discount (never below 0).
-  const recalcOrder = (orderId) => {
-    const { subtotal } = db
-      .prepare('SELECT COALESCE(SUM(unit_price * qty), 0) AS subtotal FROM order_items WHERE order_id = ?')
-      .get(orderId)
-    const order = db.prepare('SELECT discount FROM orders WHERE id = ?').get(orderId)
-    const discount = Math.min(order ? order.discount : 0, subtotal)
-    const total = subtotal - discount
-    db.prepare('UPDATE orders SET subtotal = ?, total = ? WHERE id = ?').run(subtotal, total, orderId)
-    return total
-  }
-
-  // Stock is reserved the moment an item is added to an open order, so products.stock
-  // always reflects what's physically left. Returning an order's items puts their
-  // reserved stock back (used when voiding an open order or deleting its table).
-  const restoreOrderStock = (orderId) => {
-    const inc = db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?')
-    const items = db.prepare('SELECT product_id, qty FROM order_items WHERE order_id = ?').all(orderId)
-    for (const it of items) if (it.product_id) inc.run(it.qty, it.product_id)
-  }
-
-  const getOrderWithItems = (orderId) => {
-    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId)
-    if (!order) return null
-    order.items = db.prepare('SELECT * FROM order_items WHERE order_id = ? ORDER BY id').all(orderId)
-    order.payments = db.prepare('SELECT * FROM payments WHERE order_id = ? ORDER BY id').all(orderId)
-    order.paid = order.payments.reduce((s, p) => s + p.amount, 0)
-    order.remaining = Math.max(0, order.total - order.paid)
-    return order
-  }
+  // ---- order domain ----
+  // The full order lifecycle lives in a deep module. The handlers below stay thin:
+  // boundary validation (numeric coercion, auth/role, session attribution) here,
+  // domain rules (stock reservation, discount clamp, change calc) behind one interface.
+  const orderDomain = createOrders(db)
 
   const handlers = {
     // ---------------- Licensing ----------------
@@ -399,7 +374,7 @@ export function registerIpc(db) {
       // (Paid orders keep their table_label for history via ON DELETE SET NULL.)
       inTx(() => {
         const openOrders = db.prepare("SELECT id FROM orders WHERE table_id = ? AND status = 'open'").all(id)
-        for (const o of openOrders) restoreOrderStock(o.id) // return their reserved stock
+        for (const o of openOrders) orderDomain.restoreOrderStock(o.id) // return their reserved stock
         db.prepare("DELETE FROM orders WHERE table_id = ? AND status = 'open'").run(id)
         db.prepare('DELETE FROM tables WHERE id = ?').run(id)
       })
@@ -407,253 +382,47 @@ export function registerIpc(db) {
     },
 
     // ---------------- Orders ----------------
-    'orders:openForTable': ({ tableId }) => {
-      let order = db
-        .prepare("SELECT * FROM orders WHERE table_id = ? AND status = 'open' ORDER BY id DESC LIMIT 1")
-        .get(tableId)
-      if (!order) {
-        const table = db.prepare('SELECT * FROM tables WHERE id = ?').get(tableId)
-        // Attribute the order to whoever is signed in (the server taking it).
-        order = inTx(() => {
-          const info = db
-            .prepare("INSERT INTO orders (table_id, table_label, status, user_id, user_name) VALUES (?, ?, 'open', ?, ?)")
-            .run(
-              tableId,
-              table ? table.label : null,
-              currentUser ? currentUser.id : null,
-              currentUser ? currentUser.name || currentUser.username : null
-            )
-          db.prepare("UPDATE tables SET status = 'occupied' WHERE id = ?").run(tableId)
-          return db.prepare('SELECT * FROM orders WHERE id = ?').get(info.lastInsertRowid)
-        })
-      }
-      return getOrderWithItems(order.id)
-    },
+    'orders:openForTable': ({ tableId }) => orderDomain.openForTable({ tableId, user: currentUser }),
 
-    'orders:get': ({ orderId }) => getOrderWithItems(orderId),
+    'orders:get': ({ orderId }) => orderDomain.get(orderId),
 
-    'orders:addItem': ({ orderId, productId }) => {
-      const product = db.prepare('SELECT * FROM products WHERE id = ?').get(productId)
-      if (!product) throw new Error('Product not found')
-      if (product.stock < 1) throw new Error(`Not enough stock for ${product.name}`)
-      const existing = db.prepare('SELECT * FROM order_items WHERE order_id = ? AND product_id = ?').get(orderId, productId)
-      inTx(() => {
-        if (existing) {
-          db.prepare('UPDATE order_items SET qty = qty + 1 WHERE id = ?').run(existing.id)
-        } else {
-          db.prepare('INSERT INTO order_items (order_id, product_id, name, unit_price, qty) VALUES (?, ?, ?, ?, 1)').run(
-            orderId,
-            productId,
-            product.name,
-            product.price
-          )
-        }
-        db.prepare('UPDATE products SET stock = stock - 1 WHERE id = ?').run(productId) // reserve the unit
-        recalcOrder(orderId)
-      })
-      return getOrderWithItems(orderId)
-    },
+    'orders:addItem': ({ orderId, productId }) => orderDomain.addItem({ orderId, productId }),
 
-    // Add a product with chosen modifier options. Always a new line (never merged),
-    // priced as base + sum of option deltas, with a human-readable modifier label.
-    'orders:addItemWithMods': ({ orderId, productId, optionIds }) => {
-      const product = db.prepare('SELECT * FROM products WHERE id = ?').get(productId)
-      if (!product) throw new Error('Product not found')
-      if (product.stock < 1) throw new Error(`Not enough stock for ${product.name}`)
-      let delta = 0
-      let label = ''
-      const ids = (optionIds || []).filter((x) => x != null)
-      if (ids.length) {
-        const opts = db
-          .prepare(`SELECT * FROM modifier_options WHERE id IN (${ids.map(() => '?').join(',')})`)
-          .all(...ids)
-        delta = opts.reduce((s, o) => s + o.price_delta, 0)
-        label = opts.map((o) => o.name).join(', ')
-      }
-      inTx(() => {
-        db.prepare(
-          'INSERT INTO order_items (order_id, product_id, name, unit_price, qty, modifiers) VALUES (?, ?, ?, ?, 1, ?)'
-        ).run(orderId, productId, product.name, product.price + delta, label || null)
-        db.prepare('UPDATE products SET stock = stock - 1 WHERE id = ?').run(productId) // reserve the unit
-        recalcOrder(orderId)
-      })
-      return getOrderWithItems(orderId)
-    },
+    'orders:addItemWithMods': ({ orderId, productId, optionIds }) => orderDomain.addItemWithMods({ orderId, productId, optionIds }),
 
-    'orders:setItemQty': ({ itemId, qty }) => {
-      const item = db.prepare('SELECT * FROM order_items WHERE id = ?').get(itemId)
-      if (!item) throw new Error('Item not found')
-      const newQty = intIn(qty, { min: 0, name: 'Quantity' })
-      const delta = newQty - item.qty // positive => reserve more units
-      if (delta > 0 && item.product_id) {
-        const product = db.prepare('SELECT name, stock FROM products WHERE id = ?').get(item.product_id)
-        if (!product || product.stock < delta) throw new Error(`Not enough stock${product ? ' for ' + product.name : ''}`)
-      }
-      inTx(() => {
-        if (newQty <= 0) db.prepare('DELETE FROM order_items WHERE id = ?').run(itemId)
-        else db.prepare('UPDATE order_items SET qty = ? WHERE id = ?').run(newQty, itemId)
-        // Reserve the extra units (delta > 0) or return the freed ones (delta < 0).
-        if (item.product_id && delta !== 0) db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?').run(delta, item.product_id)
-        recalcOrder(item.order_id)
-      })
-      return getOrderWithItems(item.order_id)
-    },
+    'orders:setItemQty': ({ itemId, qty }) =>
+      orderDomain.setItemQty({ itemId, qty: intIn(qty, { min: 0, name: 'Quantity' }) }),
 
-    'orders:removeItem': ({ itemId }) => {
-      const item = db.prepare('SELECT * FROM order_items WHERE id = ?').get(itemId)
-      if (!item) return null
-      inTx(() => {
-        if (item.product_id) db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?').run(item.qty, item.product_id) // return reserved stock
-        db.prepare('DELETE FROM order_items WHERE id = ?').run(itemId)
-        recalcOrder(item.order_id)
-      })
-      return getOrderWithItems(item.order_id)
-    },
+    'orders:removeItem': ({ itemId }) => orderDomain.removeItem({ itemId }),
 
-    // Set a discount as a fixed amount (millis) or a percentage of the subtotal.
-    'orders:setDiscount': ({ orderId, type, value }) => {
-      const { subtotal } = db
-        .prepare('SELECT COALESCE(SUM(unit_price * qty),0) AS subtotal FROM order_items WHERE order_id = ?')
-        .get(orderId)
-      const amount = Number(value)
-      if (!Number.isFinite(amount) || amount < 0) throw new Error('Discount must be a positive number')
-      let discount = 0
-      if (type === 'percent') discount = Math.round((subtotal * amount) / 100)
-      else discount = Math.round(amount)
-      discount = Math.max(0, Math.min(discount, subtotal))
-      inTx(() => {
-        db.prepare('UPDATE orders SET discount = ? WHERE id = ?').run(discount, orderId)
-        recalcOrder(orderId)
-      })
-      return getOrderWithItems(orderId)
-    },
+    'orders:setDiscount': ({ orderId, type, value }) => orderDomain.setDiscount({ orderId, type, value }),
 
-    'orders:void': ({ orderId }) => {
-      const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId)
-      inTx(() => {
-        if (order && order.status === 'open') restoreOrderStock(orderId) // put reserved stock back
-        if (order && order.table_id) db.prepare("UPDATE tables SET status = 'open' WHERE id = ?").run(order.table_id)
-        db.prepare('DELETE FROM orders WHERE id = ?').run(orderId)
-      })
-      return { ok: true }
-    },
+    'orders:void': ({ orderId }) => orderDomain.void({ orderId }),
 
     // ---- split / partial payments ----
-    // Payments may only be attached to (or removed from) orders that are still open —
-    // a stale checkout screen must not be able to alter a settled order's money.
-    'orders:addPayment': ({ orderId, method, amount }) => {
-      const order = db.prepare('SELECT id, status FROM orders WHERE id = ?').get(orderId)
-      if (!order) throw new Error('Order not found')
-      if (order.status !== 'open') throw new Error('This order has already been settled')
-      const safeAmount = intIn(amount, { min: 1, name: 'Payment amount' })
-      db.prepare('INSERT INTO payments (order_id, method, amount) VALUES (?, ?, ?)').run(orderId, method || 'cash', safeAmount)
-      return getOrderWithItems(orderId)
-    },
+    // Payment amount is coerced at this boundary; the domain enforces the
+    // open-order rule before recording it.
+    'orders:addPayment': ({ orderId, method, amount }) =>
+      orderDomain.addPayment({ orderId, method, amount: intIn(amount, { min: 1, name: 'Payment amount' }) }),
 
-    'orders:removePayment': ({ paymentId }) => {
-      const p = db.prepare('SELECT * FROM payments WHERE id = ?').get(paymentId)
-      if (!p) return null
-      const order = db.prepare('SELECT status FROM orders WHERE id = ?').get(p.order_id)
-      if (order && order.status !== 'open') throw new Error('This order has already been settled')
-      db.prepare('DELETE FROM payments WHERE id = ?').run(paymentId)
-      return getOrderWithItems(p.order_id)
-    },
+    'orders:removePayment': ({ paymentId }) => orderDomain.removePayment({ paymentId }),
 
-    // Finalize: requires payments to cover the total. Change can only be returned
-    // from physically tendered cash — a card overpayment earns no change.
-    'orders:complete': ({ orderId }) => {
-      const order = getOrderWithItems(orderId)
-      if (!order) throw new Error('Order not found')
-      if (order.status !== 'open') throw new Error('This order has already been settled')
-      if (order.paid < order.total) throw new Error('Payments do not cover the total')
-      const cash = order.payments.filter((p) => p.method === 'cash').reduce((s, p) => s + p.amount, 0)
-      const change = Math.max(0, Math.min(order.paid - order.total, cash))
-      inTx(() => {
-        db.prepare(
-          "UPDATE orders SET status = 'paid', cash_received = ?, change_due = ?, paid_at = datetime('now') WHERE id = ?"
-        ).run(cash, change, orderId)
-        // Stock was already reserved when each item was added to the order, so there's
-        // nothing to draw down here — the units simply convert from reserved to sold.
-        if (order.table_id) db.prepare("UPDATE tables SET status = 'open' WHERE id = ?").run(order.table_id)
-      })
-      return getOrderWithItems(orderId)
-    },
+    'orders:complete': ({ orderId }) => orderDomain.complete({ orderId }),
 
     // ---------------- History admin actions ----------------
     // Delete a paid order: restore stock and mark it cancelled. It stays in history,
     // tagged with who deleted it, but is excluded from revenue/analytics.
     // Any signed-in user may delete any order.
-    'orders:cancelPaid': ({ orderId }) => {
-      const order = getOrderWithItems(orderId)
-      if (!order) throw new Error('Order not found')
-      if (order.status !== 'paid') throw new Error('Only paid orders can be deleted')
-      const inc = db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?')
-      const by = currentUser ? currentUser.name || currentUser.username : 'Unknown'
-      inTx(() => {
-        for (const it of order.items) if (it.product_id) inc.run(it.qty, it.product_id)
-        db.prepare("UPDATE orders SET status = 'cancelled', deleted_at = datetime('now'), deleted_by = ? WHERE id = ?").run(by, orderId)
-      })
-      return { ok: true }
-    },
+    'orders:cancelPaid': ({ orderId }) =>
+      orderDomain.cancelPaid({ orderId, by: currentUser ? currentUser.name || currentUser.username : 'Unknown' }),
 
     // Edit a paid order's quantities (0 removes a line) and discount; adjusts stock by the delta.
-    'orders:updatePaid': ({ orderId, items, discountType, discountValue }) => {
-      const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId)
-      if (!order || order.status !== 'paid') throw new Error('Order is not editable')
-
-      // Validate before mutating: this order's quantities are already reserved from
-      // stock, so raising a line by N units needs N more units still on hand.
-      // Aggregate the net change per product so multi-line products are checked once.
-      const netDelta = new Map() // productId -> (oldQty - newQty) summed; negative => consumes more
-      for (const change of items || []) {
-        const item = db.prepare('SELECT * FROM order_items WHERE id = ? AND order_id = ?').get(change.id, orderId)
-        if (!item || !item.product_id) continue
-        const newQty = Math.max(0, Math.round(change.qty))
-        netDelta.set(item.product_id, (netDelta.get(item.product_id) || 0) + (item.qty - newQty))
-      }
-      for (const [productId, delta] of netDelta) {
-        if (delta >= 0) continue // returning stock is always fine
-        const product = db.prepare('SELECT name, stock FROM products WHERE id = ?').get(productId)
-        if (product && product.stock + delta < 0) {
-          throw new Error(`Not enough stock for ${product.name} — only ${product.stock} more available`)
-        }
-      }
-
-      const adjust = db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?')
-      inTx(() => {
-        for (const change of items || []) {
-          const item = db.prepare('SELECT * FROM order_items WHERE id = ? AND order_id = ?').get(change.id, orderId)
-          if (!item) continue
-          const newQty = Math.max(0, Math.round(change.qty))
-          const delta = item.qty - newQty // positive => return stock
-          if (delta !== 0 && item.product_id) adjust.run(delta, item.product_id)
-          if (newQty === 0) db.prepare('DELETE FROM order_items WHERE id = ?').run(item.id)
-          else db.prepare('UPDATE order_items SET qty = ? WHERE id = ?').run(newQty, item.id)
-        }
-        // Recompute subtotal -> discount -> total, and refresh change.
-        const { subtotal } = db
-          .prepare('SELECT COALESCE(SUM(unit_price * qty),0) AS subtotal FROM order_items WHERE order_id = ?')
-          .get(orderId)
-        let discount = order.discount
-        if (discountType === 'percent') discount = Math.round((subtotal * Number(discountValue)) / 100)
-        else if (discountType === 'amount') discount = Math.round(Number(discountValue))
-        discount = Math.max(0, Math.min(discount, subtotal))
-        const total = subtotal - discount
-        const paidRow = db.prepare('SELECT COALESCE(SUM(amount),0) AS paid FROM payments WHERE order_id = ?').get(orderId)
-        db.prepare('UPDATE orders SET subtotal = ?, discount = ?, total = ?, change_due = ? WHERE id = ?').run(
-          subtotal,
-          discount,
-          total,
-          Math.max(0, paidRow.paid - total),
-          orderId
-        )
-      })
-      return getOrderWithItems(orderId)
-    },
+    'orders:updatePaid': ({ orderId, items, discountType, discountValue }) =>
+      orderDomain.updatePaid({ orderId, items, discountType, discountValue }),
 
     // ---------------- Receipt ----------------
     'receipt:print': async ({ orderId }) => {
-      const order = getOrderWithItems(orderId)
+      const order = orderDomain.get(orderId)
       if (!order) throw new Error('Order not found')
       const settings = getSettings()
       await printReceipt(order, settings)
