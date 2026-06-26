@@ -1,3 +1,19 @@
+// Split a discounted total across people in proportion to their pre-discount
+// subtotals. Each share is rounded to whole millimes, then any rounding drift is
+// pushed onto the largest share (ties -> first) so the shares sum to `total`
+// exactly. Returns all-zero shares when there is nothing to apportion.
+function distributeShares(preSubs, gross, total) {
+  if (gross <= 0) return preSubs.map(() => 0)
+  const shares = preSubs.map((sub) => Math.round((sub * total) / gross))
+  const drift = total - shares.reduce((s, x) => s + x, 0)
+  if (drift !== 0 && shares.length) {
+    let largest = 0
+    for (let i = 1; i < preSubs.length; i++) if (preSubs[i] > preSubs[largest]) largest = i
+    shares[largest] += drift
+  }
+  return shares
+}
+
 /**
  * The Order domain: the full lifecycle of an order behind one interface.
  *
@@ -136,6 +152,57 @@ export function createOrders(db) {
         "UPDATE orders SET status = 'paid', cash_received = ?, change_due = ?, paid_at = datetime('now') WHERE id = ?"
       ).run(cash, change, orderId)
       // Stock was reserved as items were added; completion just converts it to sold.
+      if (order.table_id) db.prepare("UPDATE tables SET status = 'open' WHERE id = ?").run(order.table_id)
+    })
+    return getOrderWithItems(orderId)
+  }
+
+  // Settle an order as a by-item split: each person pays for the items assigned to
+  // them and gets their own change. `groups` = [{ items:[{itemId, qty}], method,
+  // tendered }]; amounts are expected pre-coerced to integers by the caller. Each
+  // person becomes one payment row (amount = tendered, change = their change; the
+  // share is derived as amount - change). Written atomically.
+  const completeSplit = ({ orderId, groups }) => {
+    const gs = groups || []
+    const order = getOrderWithItems(orderId)
+    if (!order) throw new Error('Order not found')
+    if (order.status !== 'open') throw new Error('This order has already been settled')
+    if (order.payments.length > 0) throw new Error('Remove existing payments before splitting the bill')
+    const lineById = new Map(order.items.map((i) => [i.id, i]))
+
+    // Strict, per-unit allocation: every unit of every line must be assigned to
+    // exactly one person — no foreign items, no over- or under-assignment.
+    const assigned = new Map() // itemId -> total qty assigned across groups
+    for (const g of gs) {
+      for (const it of g.items || []) {
+        if (!lineById.has(it.itemId)) throw new Error('Item is not part of this order')
+        assigned.set(it.itemId, (assigned.get(it.itemId) || 0) + it.qty)
+      }
+    }
+    for (const line of order.items) {
+      if ((assigned.get(line.id) || 0) !== line.qty) throw new Error('Every item must be assigned exactly once')
+    }
+
+    // Each person's share is their items' pre-discount subtotal, scaled down by the
+    // order's discount so the shares sum to order.total (not the gross subtotal).
+    const preSubtotalOf = (g) => (g.items || []).reduce((s, it) => s + lineById.get(it.itemId).unit_price * it.qty, 0)
+    const shares = distributeShares(gs.map(preSubtotalOf), order.subtotal, order.total)
+
+    const settled = gs.map((g, i) => {
+      const share = shares[i]
+      const method = g.method || 'cash'
+      if (method !== 'cash' && g.tendered !== share) throw new Error('A card payment must equal the share exactly')
+      if (method === 'cash' && g.tendered < share) throw new Error('Cash tendered does not cover the share')
+      const change = method === 'cash' ? g.tendered - share : 0
+      return { method, tendered: g.tendered, change }
+    })
+
+    const cashReceived = settled.filter((s) => s.method === 'cash').reduce((s, c) => s + c.tendered, 0)
+    const changeDue = settled.reduce((s, c) => s + c.change, 0)
+    inTx(() => {
+      const insert = db.prepare('INSERT INTO payments (order_id, method, amount, change) VALUES (?, ?, ?, ?)')
+      for (const c of settled) insert.run(orderId, c.method, c.tendered, c.change)
+      db.prepare("UPDATE orders SET status = 'paid', cash_received = ?, change_due = ?, paid_at = datetime('now') WHERE id = ?").run(cashReceived, changeDue, orderId)
       if (order.table_id) db.prepare("UPDATE tables SET status = 'open' WHERE id = ?").run(order.table_id)
     })
     return getOrderWithItems(orderId)
@@ -290,6 +357,7 @@ export function createOrders(db) {
     addPayment,
     removePayment,
     complete,
+    completeSplit,
     void: voidOrder,
     cancelPaid,
     updatePaid,

@@ -274,6 +274,9 @@ function migrate(db) {
   addColumnIfMissing(db, 'products', 'barcode', 'TEXT')
   addColumnIfMissing(db, 'products', 'image', 'TEXT') // small resized data URL, or null
   addColumnIfMissing(db, 'order_items', 'modifiers', 'TEXT')
+  // Per-payment change returned, set only by a by-item split (completeSplit). Null
+  // on the normal flow, where change is tracked once at the order level instead.
+  addColumnIfMissing(db, 'payments', 'change', 'INTEGER')
 
   seedSettings(db)
   reserveOpenOrderStockOnce(db)

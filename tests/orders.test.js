@@ -279,3 +279,234 @@ describe('history admin paths', () => {
     expect(() => orders.updatePaid({ orderId, items: [{ id: item.id, qty: 50 }] })).toThrow(/stock/i)
   })
 })
+
+describe('split payment by item (completeSplit)', () => {
+  const newTable = (label) => db.prepare('INSERT INTO tables (label, seats) VALUES (?, 4)').run(label).lastInsertRowid
+  const newProduct = (name, price, stock = 50) =>
+    db.prepare('INSERT INTO products (name, price, stock) VALUES (?, ?, ?)').run(name, price, stock).lastInsertRowid
+
+  // Open an order on a fresh table and add one unit of each (productId, qty) pair.
+  // Returns { orderId, lines } where lines maps productId -> its order_items row.
+  const buildOrder = (label, specs) => {
+    const order = orders.openForTable({ tableId: newTable(label), user: BOSS })
+    for (const { productId, qty } of specs) {
+      orders.addItem({ orderId: order.id, productId })
+      if (qty > 1) {
+        const item = orders.get(order.id).items.find((i) => i.product_id === productId)
+        orders.setItemQty({ itemId: item.id, qty })
+      }
+    }
+    const lines = {}
+    for (const it of orders.get(order.id).items) lines[it.product_id] = it
+    return { orderId: order.id, lines }
+  }
+
+  test('settles a two-person split, each paying their own share with their own change (50 = 10 + 40)', () => {
+    const a = newProduct('Split-A', 10000)
+    const b = newProduct('Split-B', 40000)
+    const { orderId, lines } = buildOrder('S-basic', [{ productId: a, qty: 1 }, { productId: b, qty: 1 }])
+
+    const done = orders.completeSplit({
+      orderId,
+      groups: [
+        { items: [{ itemId: lines[a].id, qty: 1 }], method: 'cash', tendered: 20000 },
+        { items: [{ itemId: lines[b].id, qty: 1 }], method: 'cash', tendered: 50000 }
+      ]
+    })
+
+    expect(done.status).toBe('paid')
+    expect(done.total).toBe(50000)
+    expect(done.change_due).toBe(20000)
+    expect(done.cash_received).toBe(70000)
+
+    const byTender = [...done.payments].sort((x, y) => x.amount - y.amount)
+    expect(byTender[0].amount).toBe(20000) // tendered
+    expect(byTender[0].change).toBe(10000) // change returned
+    expect(byTender[1].amount).toBe(50000)
+    expect(byTender[1].change).toBe(10000)
+    // share is derived as amount - change
+    expect(byTender[0].amount - byTender[0].change).toBe(10000)
+    expect(byTender[1].amount - byTender[1].change).toBe(40000)
+  })
+
+  test('splits a single multi-quantity line across people, one unit each', () => {
+    const p = newProduct('Shared-Coffee', 2500)
+    const { orderId, lines } = buildOrder('S-perunit', [{ productId: p, qty: 2 }])
+    expect(orders.get(orderId).total).toBe(5000)
+
+    const done = orders.completeSplit({
+      orderId,
+      groups: [
+        { items: [{ itemId: lines[p].id, qty: 1 }], method: 'cash', tendered: 5000 }, // share 2500, change 2500
+        { items: [{ itemId: lines[p].id, qty: 1 }], method: 'card', tendered: 2500 } //  share 2500, change 0
+      ]
+    })
+
+    expect(done.status).toBe('paid')
+    expect(done.change_due).toBe(2500)
+    expect(done.cash_received).toBe(5000)
+    const cash = done.payments.find((p) => p.method === 'cash')
+    const card = done.payments.find((p) => p.method === 'card')
+    expect(cash.amount - cash.change).toBe(2500) // share
+    expect(card.amount - card.change).toBe(2500) // share
+    expect(card.change).toBe(0)
+  })
+
+  test('refuses to settle unless every unit is assigned (under-assignment)', () => {
+    const p = newProduct('Strict-Under', 3000)
+    const { orderId, lines } = buildOrder('S-under', [{ productId: p, qty: 2 }]) // total 6000
+    expect(() =>
+      orders.completeSplit({
+        orderId,
+        groups: [{ items: [{ itemId: lines[p].id, qty: 1 }], method: 'cash', tendered: 6000 }]
+      })
+    ).toThrow(/assign/i)
+    const after = orders.get(orderId)
+    expect(after.status).toBe('open') // nothing settled
+    expect(after.payments).toHaveLength(0)
+  })
+
+  test('refuses to settle when a line is over-assigned', () => {
+    const p = newProduct('Strict-Over', 3000)
+    const { orderId, lines } = buildOrder('S-over', [{ productId: p, qty: 1 }])
+    expect(() =>
+      orders.completeSplit({
+        orderId,
+        groups: [{ items: [{ itemId: lines[p].id, qty: 2 }], method: 'cash', tendered: 6000 }]
+      })
+    ).toThrow(/assign/i)
+    expect(orders.get(orderId).status).toBe('open')
+  })
+
+  test('rejects an item that does not belong to the order', () => {
+    const p = newProduct('Strict-Foreign', 3000)
+    const { orderId } = buildOrder('S-foreign', [{ productId: p, qty: 1 }])
+    expect(() =>
+      orders.completeSplit({
+        orderId,
+        groups: [{ items: [{ itemId: 999999, qty: 1 }], method: 'cash', tendered: 3000 }]
+      })
+    ).toThrow(/not part of this order/i)
+    expect(orders.get(orderId).status).toBe('open')
+  })
+
+  test('a card tender must equal the share exactly (no card change)', () => {
+    const p = newProduct('Card-Mismatch', 4000)
+    const { orderId, lines } = buildOrder('S-card', [{ productId: p, qty: 1 }])
+    expect(() =>
+      orders.completeSplit({
+        orderId,
+        groups: [{ items: [{ itemId: lines[p].id, qty: 1 }], method: 'card', tendered: 5000 }]
+      })
+    ).toThrow(/card/i)
+    expect(orders.get(orderId).status).toBe('open')
+  })
+
+  test('a cash tender below the share is refused', () => {
+    const p = newProduct('Cash-Short', 4000)
+    const { orderId, lines } = buildOrder('S-cashshort', [{ productId: p, qty: 1 }])
+    expect(() =>
+      orders.completeSplit({
+        orderId,
+        groups: [{ items: [{ itemId: lines[p].id, qty: 1 }], method: 'cash', tendered: 3000 }]
+      })
+    ).toThrow(/cover/i)
+    expect(orders.get(orderId).status).toBe('open')
+  })
+
+  test('distributes a percent discount across shares so they sum to the discounted total', () => {
+    const a = newProduct('Disc-A', 10000)
+    const b = newProduct('Disc-B', 40000)
+    const { orderId, lines } = buildOrder('S-disc', [{ productId: a, qty: 1 }, { productId: b, qty: 1 }])
+    orders.setDiscount({ orderId, type: 'percent', value: 10 }) // total 45000
+    expect(orders.get(orderId).total).toBe(45000)
+
+    const done = orders.completeSplit({
+      orderId,
+      groups: [
+        { items: [{ itemId: lines[a].id, qty: 1 }], method: 'card', tendered: 9000 }, //  share 9000
+        { items: [{ itemId: lines[b].id, qty: 1 }], method: 'card', tendered: 36000 } // share 36000
+      ]
+    })
+
+    expect(done.status).toBe('paid')
+    const shares = done.payments.map((p) => p.amount - p.change)
+    expect(shares).toEqual([9000, 36000])
+    expect(shares[0] + shares[1]).toBe(45000)
+  })
+
+  test('puts the rounding remainder on the largest share so shares sum to the total exactly', () => {
+    // 3 equal items of 1.000, 1.000 fixed discount -> total 2.000. Even proportional
+    // shares round to 667 each (sums to 2.001); the -1 remainder lands on the first
+    // (largest, tie-broken to first) share -> 666.
+    const a = newProduct('Rem-A', 1000)
+    const b = newProduct('Rem-B', 1000)
+    const c = newProduct('Rem-C', 1000)
+    const { orderId, lines } = buildOrder('S-rem', [
+      { productId: a, qty: 1 },
+      { productId: b, qty: 1 },
+      { productId: c, qty: 1 }
+    ])
+    orders.setDiscount({ orderId, type: 'amount', value: 1000 }) // total 2000
+    expect(orders.get(orderId).total).toBe(2000)
+
+    const done = orders.completeSplit({
+      orderId,
+      groups: [
+        { items: [{ itemId: lines[a].id, qty: 1 }], method: 'card', tendered: 666 },
+        { items: [{ itemId: lines[b].id, qty: 1 }], method: 'card', tendered: 667 },
+        { items: [{ itemId: lines[c].id, qty: 1 }], method: 'card', tendered: 667 }
+      ]
+    })
+
+    const shares = done.payments.map((p) => p.amount - p.change)
+    expect(shares).toEqual([666, 667, 667]) // remainder on the first
+    expect(shares.reduce((s, x) => s + x, 0)).toBe(2000)
+  })
+
+  test('refuses to split an order that already has payments (clean slate)', () => {
+    const p = newProduct('Guard-Pay', 5000)
+    const { orderId, lines } = buildOrder('S-haspay', [{ productId: p, qty: 1 }])
+    orders.addPayment({ orderId, method: 'cash', amount: 1000 })
+    expect(() =>
+      orders.completeSplit({
+        orderId,
+        groups: [{ items: [{ itemId: lines[p].id, qty: 1 }], method: 'cash', tendered: 5000 }]
+      })
+    ).toThrow(/payment/i)
+    expect(orders.get(orderId).status).toBe('open')
+  })
+
+  test('refuses to split an already-settled order', () => {
+    const p = newProduct('Guard-Settled', 5000)
+    const { orderId, lines } = buildOrder('S-settled', [{ productId: p, qty: 1 }])
+    orders.completeSplit({
+      orderId,
+      groups: [{ items: [{ itemId: lines[p].id, qty: 1 }], method: 'cash', tendered: 5000 }]
+    })
+    expect(() =>
+      orders.completeSplit({
+        orderId,
+        groups: [{ items: [{ itemId: lines[p].id, qty: 1 }], method: 'cash', tendered: 5000 }]
+      })
+    ).toThrow(/settled/i)
+  })
+
+  test('one invalid person aborts the whole split — no payments written, order stays open', () => {
+    const a = newProduct('Atom-A', 10000)
+    const b = newProduct('Atom-B', 40000)
+    const { orderId, lines } = buildOrder('S-atomic', [{ productId: a, qty: 1 }, { productId: b, qty: 1 }])
+    expect(() =>
+      orders.completeSplit({
+        orderId,
+        groups: [
+          { items: [{ itemId: lines[a].id, qty: 1 }], method: 'cash', tendered: 20000 }, // valid
+          { items: [{ itemId: lines[b].id, qty: 1 }], method: 'card', tendered: 99999 } //  card != share -> abort
+        ]
+      })
+    ).toThrow(/card/i)
+    const after = orders.get(orderId)
+    expect(after.status).toBe('open')
+    expect(after.payments).toHaveLength(0)
+  })
+})
