@@ -1,20 +1,20 @@
 import { dialog, BrowserWindow } from 'electron'
 import { writeFileSync } from 'fs'
 import { mt, isRtlLang } from './i18n'
+import { formatMoney } from '../shared/money'
 
 const esc = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 
 const mainWindow = () => BrowserWindow.getAllWindows().find((w) => !w.isDestroyed()) || null
 
-// Format integer "millis" using the shop's currency settings (mirrors receipt.js).
+// Main-process adapter: formats integer millimes from a settings row (mirrors receipt.js).
 function money(millis, s) {
-  const decimals = Math.max(0, Math.min(3, parseInt(s.currency_decimals ?? '3', 10)))
-  const sign = millis < 0 ? '-' : ''
-  const value = Math.abs(Math.round(millis || 0)) / 1000
-  const num = value.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
-  const sym = s.currency_symbol || ''
-  return s.currency_position === 'before' ? `${sign}${sym}${num}` : `${sign}${num} ${sym}`.trim()
+  return formatMoney(millis, {
+    symbol: s.currency_symbol,
+    decimals: parseInt(s.currency_decimals ?? '3', 10),
+    position: s.currency_position
+  })
 }
 
 const methodLabel = (m, lang) =>

@@ -1,18 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../lib/api'
-import { useSettings } from '../lib/settings'
+import { useSettings, formatMoney } from '../lib/settings'
 import { useLicense } from '../lib/license'
 import { useT } from '../lib/i18n'
 import { LANGUAGES } from '../lib/locales'
 import { useDialog } from '../components/Dialog'
 import PageHeader from '../components/PageHeader'
 
-// Local preview formatter (mirrors lib/settings money()).
+// Live preview of the sample amount under the form's (unsaved) currency settings.
 function preview(form) {
-  const decimals = Math.max(0, Math.min(3, parseInt(form.currency_decimals || '3', 10)))
-  const num = (12500 / 1000).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
-  const sym = form.currency_symbol || ''
-  return form.currency_position === 'before' ? `${sym}${num}` : `${num} ${sym}`.trim()
+  return formatMoney(12500, {
+    symbol: form.currency_symbol,
+    decimals: parseInt(form.currency_decimals || '3', 10),
+    position: form.currency_position
+  })
 }
 
 export default function Settings() {

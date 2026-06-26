@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { formatMoney, unitsToMillis } from '../../../shared/money'
 
-// Internal cache so the pure money() helper works outside React components too.
+// Internal cache so the money() adapter works outside React components too.
 // Money is stored everywhere as integer "millis" (price * 1000).
 let cache = { currency_symbol: 'DT', currency_decimals: '3', currency_position: 'after' }
 
@@ -8,20 +9,17 @@ export function currencyDecimals() {
   return Math.max(0, Math.min(3, parseInt(cache.currency_decimals ?? '3', 10)))
 }
 
+// Renderer adapter: formats with the cached currency settings.
 export function money(millis) {
-  const decimals = currencyDecimals()
-  const sign = millis < 0 ? '-' : ''
-  const value = Math.abs(Math.round(millis || 0)) / 1000
-  const num = value.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
-  const sym = cache.currency_symbol || ''
-  return cache.currency_position === 'before' ? `${sign}${sym}${num}` : `${sign}${num} ${sym}`.trim()
+  return formatMoney(millis, {
+    symbol: cache.currency_symbol,
+    decimals: currencyDecimals(),
+    position: cache.currency_position
+  })
 }
 
-// A units string the user types ("12.5", "12,500") -> integer millis.
-export function unitsToMillis(input) {
-  const n = parseFloat(String(input).replace(',', '.'))
-  return isNaN(n) ? 0 : Math.round(n * 1000)
-}
+// Re-export so existing call sites keep importing it from '../lib/settings'.
+export { unitsToMillis, formatMoney }
 
 const Ctx = createContext(null)
 
