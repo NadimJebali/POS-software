@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useSettings } from '../lib/settings'
+import { parseSettings } from '../../../shared/settings'
 import { useAuth } from '../lib/auth'
 import { useLicense } from '../lib/license'
 import { useT } from '../lib/i18n'
@@ -45,7 +46,7 @@ export default function Layout() {
   // Low-stock indicator for the Menu nav item (admins only).
   useEffect(() => {
     if (!isAdmin) return
-    const threshold = parseInt(settings.low_stock_threshold || '5', 10)
+    const threshold = parseSettings(settings).lowStockThreshold
     api.products.list().then((ps) => setLowCount(ps.filter((p) => p.stock <= threshold).length))
   }, [isAdmin, settings.low_stock_threshold])
 

@@ -2,6 +2,7 @@ import initSqlJs from 'sql.js'
 import { app } from 'electron'
 import { join } from 'path'
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'fs'
+import { DEFAULT_SETTINGS } from '../shared/settings'
 
 /**
  * Money is stored everywhere as INTEGER millimes (1 TND = 1000 millimes)
@@ -305,23 +306,6 @@ function addColumnIfMissing(db, table, column, definition) {
   if (!cols.some((c) => c.name === column)) {
     db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
   }
-}
-
-const DEFAULT_SETTINGS = {
-  shop_name: 'My Restaurant',
-  shop_address: '',
-  shop_phone: '',
-  receipt_footer: 'Thank you! Come back soon',
-  logo: '',
-  currency_symbol: 'DT',
-  currency_decimals: '3',
-  currency_position: 'after', // 'before' | 'after'
-  print_silent: '0',
-  printer_name: '',
-  paper_width: '80', // mm: '58' | '80'
-  low_stock_threshold: '5', // warn when product stock is at or below this
-  auto_lock_minutes: '0', // sign out after this many idle minutes (0 = never)
-  language: 'en' // UI language: 'en' | 'fr' | 'ar'
 }
 
 function seedSettings(db) {

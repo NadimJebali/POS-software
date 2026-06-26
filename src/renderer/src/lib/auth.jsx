@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { api } from './api'
 import { useSettings } from './settings'
+import { parseSettings } from '../../../shared/settings'
 
 const Ctx = createContext(null)
 
@@ -16,7 +17,7 @@ export function AuthProvider({ children }) {
 
   // Auto-lock: sign out after a configurable idle period (0 = never).
   useEffect(() => {
-    const mins = parseInt(settings.auto_lock_minutes || '0', 10)
+    const mins = parseSettings(settings).autoLockMinutes
     if (!user || !mins) return
     let timer
     const reset = () => {

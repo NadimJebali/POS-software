@@ -1,21 +1,18 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { formatMoney, unitsToMillis } from '../../../shared/money'
+import { parseSettings } from '../../../shared/settings'
 
 // Internal cache so the money() adapter works outside React components too.
 // Money is stored everywhere as integer "millis" (price * 1000).
 let cache = { currency_symbol: 'DT', currency_decimals: '3', currency_position: 'after' }
 
 export function currencyDecimals() {
-  return Math.max(0, Math.min(3, parseInt(cache.currency_decimals ?? '3', 10)))
+  return parseSettings(cache).currency.decimals
 }
 
 // Renderer adapter: formats with the cached currency settings.
 export function money(millis) {
-  return formatMoney(millis, {
-    symbol: cache.currency_symbol,
-    decimals: currencyDecimals(),
-    position: cache.currency_position
-  })
+  return formatMoney(millis, parseSettings(cache).currency)
 }
 
 // Re-export so existing call sites keep importing it from '../lib/settings'.

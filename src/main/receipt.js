@@ -1,17 +1,14 @@
 import { BrowserWindow } from 'electron'
 import { mt, isRtlLang } from './i18n'
 import { formatMoney } from '../shared/money'
+import { parseSettings } from '../shared/settings'
 
 const esc = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 
 // Main-process adapter: formats integer millimes from a settings row.
 function money(millis, s) {
-  return formatMoney(millis, {
-    symbol: s.currency_symbol,
-    decimals: parseInt(s.currency_decimals ?? '3', 10),
-    position: s.currency_position
-  })
+  return formatMoney(millis, parseSettings(s).currency)
 }
 
 function receiptHtml(order, s) {
@@ -83,9 +80,9 @@ export function printReceipt(order, settings) {
       else resolve()
     }
 
-    const silent = settings.print_silent === '1'
+    const { printSilent: silent, printerName } = parseSettings(settings)
     const printOpts = { silent, printBackground: true, margins: { marginType: 'none' } }
-    if (silent && settings.printer_name) printOpts.deviceName = settings.printer_name
+    if (silent && printerName) printOpts.deviceName = printerName
 
     win
       .loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(receiptHtml(order, settings)))

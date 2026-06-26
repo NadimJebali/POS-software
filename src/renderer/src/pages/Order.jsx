@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { money, useSettings } from '../lib/settings'
+import { parseSettings } from '../../../shared/settings'
 import { useT } from '../lib/i18n'
 import Modal from '../components/Modal'
 import ProductCard from '../components/ProductCard'
@@ -14,7 +15,7 @@ export default function Order() {
   const { settings } = useSettings()
   const { confirm } = useDialog()
   const { t } = useT()
-  const threshold = parseInt(settings.low_stock_threshold || '5', 10)
+  const threshold = parseSettings(settings).lowStockThreshold
 
   const [order, setOrder] = useState(null)
   const [categories, setCategories] = useState([])

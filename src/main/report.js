@@ -2,6 +2,7 @@ import { dialog, BrowserWindow } from 'electron'
 import { writeFileSync } from 'fs'
 import { mt, isRtlLang } from './i18n'
 import { formatMoney } from '../shared/money'
+import { parseSettings } from '../shared/settings'
 
 const esc = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
@@ -10,11 +11,7 @@ const mainWindow = () => BrowserWindow.getAllWindows().find((w) => !w.isDestroye
 
 // Main-process adapter: formats integer millimes from a settings row (mirrors receipt.js).
 function money(millis, s) {
-  return formatMoney(millis, {
-    symbol: s.currency_symbol,
-    decimals: parseInt(s.currency_decimals ?? '3', 10),
-    position: s.currency_position
-  })
+  return formatMoney(millis, parseSettings(s).currency)
 }
 
 const methodLabel = (m, lang) =>

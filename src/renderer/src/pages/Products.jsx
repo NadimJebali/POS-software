@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../lib/api'
 import { money, unitsToMillis, useSettings } from '../lib/settings'
+import { parseSettings } from '../../../shared/settings'
 import { useT } from '../lib/i18n'
 import PageHeader from '../components/PageHeader'
 import Modal from '../components/Modal'
@@ -49,7 +50,7 @@ export default function Products() {
   const { settings } = useSettings()
   const { confirm } = useDialog()
   const { t } = useT()
-  const threshold = parseInt(settings.low_stock_threshold || '5', 10)
+  const threshold = parseSettings(settings).lowStockThreshold
   const [categories, setCategories] = useState([])
   const [products, setProducts] = useState([])
   const [selectedCat, setSelectedCat] = useState(null)
