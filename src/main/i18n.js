@@ -36,16 +36,12 @@ const M = {
   }
 }
 
-const resolve = (dict, key) => key.split('.').reduce((o, k) => (o == null ? undefined : o[k]), dict)
+import { translate } from '../shared/i18n'
 
 // mt(lang, 'report.revenue', { unit: 'day' }) → localized string, English fallback.
+// Main-process adapter over the shared engine, bound to the receipt/report dictionary.
 export function mt(lang, key, vars) {
-  const dict = M[lang] || M.en
-  let s = resolve(dict, key)
-  if (s == null) s = resolve(M.en, key)
-  if (s == null) return key
-  if (vars) for (const [k, v] of Object.entries(vars)) s = s.split(`{${k}}`).join(String(v))
-  return s
+  return translate(M, lang, key, vars)
 }
 
 export const isRtlLang = (lang) => lang === 'ar'
