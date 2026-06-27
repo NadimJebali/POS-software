@@ -40,7 +40,7 @@ export default function CustomerDisplay() {
   }, [state.theme])
 
   const shell = (children) => (
-    <div dir={dir} className="h-screen w-screen bg-[#0f172a] text-cream flex flex-col items-center justify-center gap-10 p-16 select-none">
+    <div dir={dir} className="h-screen w-screen bg-base text-cream flex flex-col items-center justify-center gap-10 p-16 select-none">
       {children}
     </div>
   )

@@ -88,8 +88,9 @@ export default function Analytics() {
           <h2 className="font-display text-xl font-bold mb-5">{t('analytics.earnings', { period: t('analytics.' + periodObj.labelKey) })}</h2>
           <div className="flex items-end gap-2 h-64">
             {series.map((s, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center justify-end h-full gap-2 group">
-                <div className="text-[11px] text-muted font-semibold tnum opacity-0 group-hover:opacity-100 transition">
+              <div key={i} className="flex-1 flex flex-col items-center justify-end h-full gap-2">
+                {/* Always visible — there is no hover on a touchscreen. */}
+                <div className="text-[11px] text-cream font-semibold tnum leading-none text-center min-h-[13px]">
                   {s.total > 0 ? money(s.total) : ''}
                 </div>
                 <div
@@ -97,7 +98,7 @@ export default function Analytics() {
                   style={{
                     height: `${(s.total / max) * 100}%`,
                     minHeight: s.total > 0 ? 4 : 0,
-                    background: 'linear-gradient(180deg,#f7b96b,#ec9a45)'
+                    background: 'linear-gradient(180deg, rgb(var(--c-emberhi)), rgb(var(--c-ember)))'
                   }}
                 />
                 <div className="text-[11px] text-muted whitespace-nowrap">{s.label}</div>
@@ -145,7 +146,7 @@ export default function Analytics() {
                 <div className="h-3 rounded-full bg-surface2 overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all"
-                    style={{ width: `${(s.revenue / serverMax) * 100}%`, background: 'linear-gradient(90deg,#ec9a45,#f7b96b)' }}
+                    style={{ width: `${(s.revenue / serverMax) * 100}%`, background: 'linear-gradient(90deg, rgb(var(--c-ember)), rgb(var(--c-emberhi)))' }}
                   />
                 </div>
               </div>
@@ -283,7 +284,7 @@ function ExportDialog({ isAdmin, exporting, onClose, onExport }) {
           <div className="grid grid-cols-2 gap-2 mt-1.5">
             {sectionList.map(([k, label]) => (
               <label key={k} className="flex items-center gap-2 text-sm">
-                <input type="checkbox" className="w-5 h-5 accent-[#EC9A45]" checked={sections[k]} onChange={() => toggle(k)} />
+                <input type="checkbox" className="w-5 h-5 accent-ember" checked={sections[k]} onChange={() => toggle(k)} />
                 {label}
               </label>
             ))}

@@ -24,7 +24,7 @@ export function createMainWindow({ isDev, fullscreen = false, onFullscreenChange
     height: 850,
     minWidth: 1024,
     minHeight: 700,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#15100D',
     autoHideMenuBar: true,
     fullscreen,
     webPreferences: {
@@ -108,7 +108,7 @@ function openCustomerWindow(display) {
     width: display.bounds.width,
     height: display.bounds.height,
     frame: false,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#15100D',
     autoHideMenuBar: true,
     skipTaskbar: true,
     webPreferences: {
