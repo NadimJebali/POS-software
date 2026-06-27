@@ -64,6 +64,38 @@ export default function CustomerDisplay() {
     )
   }
 
+  // ---------- Split in progress ----------
+  if (state.phase === 'split') {
+    return shell(
+      <>
+        {state.shopName && <h2 className="font-display text-3xl text-muted">{state.shopName}</h2>}
+        <div className="flex flex-col items-center gap-1">
+          <span className="text-2xl text-muted">{t('customer.total')}</span>
+          <span className="font-display text-5xl font-bold tnum">{fmt(state.total)}</span>
+        </div>
+        <div className="w-full max-w-3xl flex flex-col gap-3">
+          {(state.persons || []).map((p) => (
+            <div
+              key={p.label}
+              className={`flex items-center justify-between rounded-2xl border px-6 py-4 text-2xl ${
+                p.settled ? 'bg-mint/10 border-mint/40' : 'bg-white/5 border-white/10'
+              }`}
+            >
+              <span className="flex items-center gap-3">
+                {p.settled && <span className="text-mint text-3xl">✓</span>}
+                {t('customer.person', { n: p.label })}
+              </span>
+              <span className="flex items-baseline gap-4 tnum">
+                <span>{fmt(p.share)}</span>
+                {p.settled && p.change > 0 && <span className="text-mint text-xl">{t('customer.change')} {fmt(p.change)}</span>}
+              </span>
+            </div>
+          ))}
+        </div>
+      </>
+    )
+  }
+
   // ---------- Thank you ----------
   if (state.phase === 'thanks') {
     return shell(

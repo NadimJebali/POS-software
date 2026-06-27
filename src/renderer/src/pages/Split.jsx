@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../lib/api'
-import { money, unitsToMillis, currencyDecimals } from '../lib/settings'
-import { useT } from '../lib/i18n'
+import { money, unitsToMillis, currencyDecimals, useSettings } from '../lib/settings'
+import { parseSettings } from '../../../shared/settings'
 import { splitShares, evaluateTender } from '../../../shared/split'
+import { splitSnapshot, customerSnapshot } from '../../../shared/customer'
+import { useT } from '../lib/i18n'
 import NumberPad from '../components/NumberPad'
 import { useDialog } from '../components/Dialog'
 import { IconBack } from '../components/icons'
@@ -16,6 +18,7 @@ export default function Split() {
   const navigate = useNavigate()
   const { alert } = useDialog()
   const { t } = useT()
+  const { settings } = useSettings()
 
   const [order, setOrder] = useState(null)
   const [people, setPeople] = useState([blankPerson(), blankPerson()])
@@ -23,9 +26,30 @@ export default function Split() {
   const [busy, setBusy] = useState(false)
   const [paid, setPaid] = useState(null)
 
+  const branding = { shopName: settings.shop_name, logo: settings.logo, language: settings.language, currency: parseSettings(settings).currency }
+  const brandingRef = useRef(branding)
+  useEffect(() => {
+    brandingRef.current = branding
+  })
+
   useEffect(() => {
     api.orders.get(Number(orderId)).then(setOrder)
   }, [orderId])
+
+  // Mirror the split-in-progress to the customer display (per-person rows); reset
+  // it to idle on leave. The 'thanks' screen is pushed on completion.
+  useEffect(() => {
+    if (!order || paid) return
+    const priceById = Object.fromEntries(order.items.map((i) => [i.id, i.unit_price]))
+    const preSubtotals = people.map((p) => Object.entries(p.alloc).reduce((s, [id, q]) => s + (priceById[id] || 0) * q, 0))
+    const shares = splitShares(preSubtotals, order.subtotal, order.total)
+    const persons = people
+      .map((p, i) => ({ method: p.method, tendered: p.method === 'card' ? shares[i] : unitsToMillis(p.tenderStr), share: shares[i] }))
+      .filter((_, i) => preSubtotals[i] > 0)
+    api.customer.present(splitSnapshot({ branding: brandingRef.current, total: order.total, persons }))
+  }, [order, people, paid])
+
+  useEffect(() => () => api.customer.present(customerSnapshot({ phase: 'idle', branding: brandingRef.current })), [])
 
   if (!order) return <div className="p-8 text-muted">{t('common.loading')}</div>
 
@@ -85,7 +109,9 @@ export default function Split() {
         tendered: tenderOf(people[i], i),
         items: Object.entries(people[i].alloc).map(([itemId, qty]) => ({ itemId: Number(itemId), qty }))
       }))
-      setPaid(await api.orders.completeSplit(order.id, groups))
+      const result = await api.orders.completeSplit(order.id, groups)
+      setPaid(result)
+      api.customer.present(customerSnapshot({ phase: 'thanks', branding: brandingRef.current, order: result }))
     } catch (e) {
       alert({ title: t('checkout.cannotComplete'), message: e.message })
     } finally {
