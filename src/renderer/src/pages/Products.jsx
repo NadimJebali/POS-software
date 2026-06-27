@@ -349,7 +349,7 @@ function ModifierEditor({ productId }) {
               {g.name}
               <span className="text-xs text-muted ms-2">{g.required ? t('common.required') + ' · ' : ''}{g.multi ? t('products.multiple') : t('products.pickOne')}</span>
             </span>
-            <button className="text-muted hover:text-berry" onClick={() => removeGroup(g.id)}><IconTrash width={16} height={16} /></button>
+            <button className="text-muted hover:text-berry inline-flex items-center justify-center w-11 h-11 -me-2 rounded-lg active:scale-90" onClick={() => removeGroup(g.id)}><IconTrash width={16} height={16} /></button>
           </div>
           <div className="flex flex-wrap gap-2 mb-2">
             {g.options.map((o) => (

@@ -244,7 +244,10 @@ export default function Checkout() {
               <div key={p.id} className="flex items-center justify-between rounded-xl bg-surface2/70 border border-line px-3 py-2 animate-pop">
                 <span className="chip bg-surface3 text-cream">{p.method === 'card' ? t('checkout.card') : t('checkout.cash')}</span>
                 <span className="tnum font-semibold">{money(p.amount)}</span>
-                <button className="text-muted hover:text-berry" onClick={() => removePayment(p.id)}>
+                <button
+                  className="text-muted hover:text-berry inline-flex items-center justify-center w-11 h-11 -me-2 rounded-lg active:scale-90"
+                  onClick={() => removePayment(p.id)}
+                >
                   <IconTrash width={18} height={18} />
                 </button>
               </div>
