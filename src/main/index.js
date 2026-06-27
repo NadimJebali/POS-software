@@ -1,7 +1,7 @@
 import { app, Menu, ipcMain } from 'electron'
 import { initDatabase } from './db'
 import { registerIpc } from './ipc'
-import { createMainWindow, setMainFullscreen, syncCustomerDisplay, initDisplayWatch, listDisplays } from './windows'
+import { createMainWindow, setMainFullscreen, syncCustomerDisplay, initDisplayWatch, listDisplays, pushCustomerState } from './windows'
 import { parseSettings } from '../shared/settings'
 
 let db
@@ -22,7 +22,8 @@ const persistFullscreen = (on) => putSetting('fullscreen', on ? '1' : '0')
 // What the customer display shows when idle (and the language/RTL it uses).
 const customerBranding = () => {
   const row = settingsRow()
-  return { shopName: row.shop_name, logo: row.logo, language: parseSettings(row).language }
+  const s = parseSettings(row)
+  return { shopName: row.shop_name, logo: row.logo, language: s.language, currency: s.currency }
 }
 
 app.whenReady().then(async () => {
@@ -48,6 +49,9 @@ app.whenReady().then(async () => {
     if (monitorId != null) putSetting('customer_display_monitor', monitorId)
     syncCustomerDisplay({ enabled: !!on, monitorId: monitorId ?? settingsRow().customer_display_monitor, branding: customerBranding() })
   })
+
+  // The cashier pushes presentation snapshots; relay them to the customer window.
+  ipcMain.handle('customer:present', (_e, { snapshot }) => pushCustomerState(snapshot))
 })
 
 // Single-window kiosk app: closing the window exits everywhere (including macOS —

@@ -83,7 +83,8 @@ export const api = {
     list: () => call('displays:list')
   },
   customer: {
-    enable: (on, monitorId) => call('customer:enable', { on, monitorId })
+    enable: (on, monitorId) => call('customer:enable', { on, monitorId }),
+    present: (snapshot) => call('customer:present', { snapshot })
   },
   analytics: {
     overview: () => call('analytics:overview'),

@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../lib/api'
-import { money, unitsToMillis, currencyDecimals } from '../lib/settings'
+import { money, unitsToMillis, currencyDecimals, useSettings } from '../lib/settings'
+import { parseSettings } from '../../../shared/settings'
+import { customerSnapshot } from '../../../shared/customer'
 import { useT } from '../lib/i18n'
 import NumberPad from '../components/NumberPad'
 import Modal from '../components/Modal'
@@ -16,6 +18,7 @@ export default function Checkout() {
   const navigate = useNavigate()
   const { alert } = useDialog()
   const { t } = useT()
+  const { settings } = useSettings()
 
   const [order, setOrder] = useState(null)
   const [method, setMethod] = useState('cash')
@@ -24,9 +27,26 @@ export default function Checkout() {
   const [paid, setPaid] = useState(null)
   const [busy, setBusy] = useState(false)
 
+  // Branding for the customer display, mirrored into a ref so the unmount cleanup
+  // can reset that screen to idle without re-running on every settings change.
+  const branding = { shopName: settings.shop_name, logo: settings.logo, language: settings.language, currency: parseSettings(settings).currency }
+  const brandingRef = useRef(branding)
+  useEffect(() => {
+    brandingRef.current = branding
+  })
+
   useEffect(() => {
     api.orders.get(Number(orderId)).then(setOrder)
   }, [orderId])
+
+  // Mirror the live payment to the customer display as the cashier types; reset it
+  // to idle when leaving checkout (the 'thanks' screen is pushed on completion).
+  useEffect(() => {
+    if (!order || paid) return
+    api.customer.present(customerSnapshot({ phase: 'payment', branding: brandingRef.current, order, typed: unitsToMillis(amountStr), method }))
+  }, [order, amountStr, method, paid])
+
+  useEffect(() => () => api.customer.present(customerSnapshot({ phase: 'idle', branding: brandingRef.current })), [])
 
   if (!order) return <div className="p-8 text-muted">{t('common.loading')}</div>
 
@@ -88,6 +108,7 @@ export default function Checkout() {
       }
       const result = await api.orders.complete(order.id)
       setPaid(result)
+      api.customer.present(customerSnapshot({ phase: 'thanks', branding: brandingRef.current, order: result }))
     } catch (e) {
       alert({ title: t('checkout.cannotComplete'), message: e.message })
     } finally {
