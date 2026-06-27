@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { formatMoney, unitsToMillis } from '../../../shared/money'
 import { parseSettings } from '../../../shared/settings'
+import { applyTheme } from './themes'
 
 // Internal cache so the money() adapter works outside React components too.
 // Money is stored everywhere as integer "millis" (price * 1000).
@@ -36,6 +37,11 @@ export function SettingsProvider({ children }) {
     setSettings(s)
     return s
   }, [])
+
+  // Apply the colour theme to <html> whenever settings load or change.
+  useEffect(() => {
+    if (settings) applyTheme(parseSettings(settings).theme)
+  }, [settings])
 
   if (!settings) return null // gate the app until settings have loaded
   return <Ctx.Provider value={{ settings, save }}>{children}</Ctx.Provider>

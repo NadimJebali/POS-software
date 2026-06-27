@@ -14,7 +14,7 @@ const sum = (rows, pred = () => true) => rows.filter(pred).reduce((s, p) => s + 
  * @param method   'cash' | 'card' for the typed amount
  */
 export function customerSnapshot({ phase, branding = {}, order, typed = 0, method = 'cash' }) {
-  const base = { phase, shopName: branding.shopName, logo: branding.logo, language: branding.language, currency: branding.currency }
+  const base = { phase, shopName: branding.shopName, logo: branding.logo, language: branding.language, currency: branding.currency, theme: branding.theme }
   if (phase === 'idle' || !order) return base
 
   const payments = order.payments || []
@@ -37,6 +37,7 @@ export function splitSnapshot({ branding = {}, total, persons = [] }) {
     logo: branding.logo,
     language: branding.language,
     currency: branding.currency,
+    theme: branding.theme,
     total,
     persons: persons.map((p, i) => {
       const ev = evaluateTender(p.method, p.tendered, p.share)

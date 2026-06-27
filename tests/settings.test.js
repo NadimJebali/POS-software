@@ -48,6 +48,12 @@ describe('parseSettings', () => {
     expect(DEFAULT_SETTINGS.fullscreen).toBe('0')
   })
 
+  test('parses the selected theme, defaulting to ember', () => {
+    expect(parseSettings({}).theme).toBe('ember')
+    expect(parseSettings({ theme: 'midnight' }).theme).toBe('midnight')
+    expect(DEFAULT_SETTINGS.theme).toBe('ember')
+  })
+
   test('parses customer-display settings, defaulting to off with no chosen monitor', () => {
     expect(parseSettings({}).customerDisplay).toBe(false)
     expect(parseSettings({}).customerDisplayMonitor).toBe('')

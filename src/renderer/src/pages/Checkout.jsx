@@ -29,7 +29,7 @@ export default function Checkout() {
 
   // Branding for the customer display, mirrored into a ref so the unmount cleanup
   // can reset that screen to idle without re-running on every settings change.
-  const branding = { shopName: settings.shop_name, logo: settings.logo, language: settings.language, currency: parseSettings(settings).currency }
+  const branding = { shopName: settings.shop_name, logo: settings.logo, language: settings.language, currency: parseSettings(settings).currency, theme: settings.theme }
   const brandingRef = useRef(branding)
   useEffect(() => {
     brandingRef.current = branding

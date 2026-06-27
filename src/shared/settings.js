@@ -18,6 +18,7 @@ export const DEFAULT_SETTINGS = {
   low_stock_threshold: '5', // warn when product stock is at or below this
   auto_lock_minutes: '0', // sign out after this many idle minutes (0 = never)
   language: 'en', // UI language: 'en' | 'fr' | 'ar'
+  theme: 'ember', // colour theme: 'ember' | 'midnight' | 'vino'
   fullscreen: '0', // run the main window fullscreen ('1') or windowed ('0')
   customer_display: '0', // show the customer-facing second screen ('1') or not ('0')
   customer_display_monitor: '' // chosen monitor id for the customer display (''=auto: first non-primary)
@@ -43,6 +44,7 @@ export function parseSettings(raw = {}) {
     printerName: s.printer_name,
     paperWidth: s.paper_width,
     language: s.language,
+    theme: s.theme,
     fullscreen: s.fullscreen === '1',
     customerDisplay: s.customer_display === '1',
     customerDisplayMonitor: s.customer_display_monitor,

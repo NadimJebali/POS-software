@@ -4,18 +4,20 @@ export default {
   theme: {
     extend: {
       colors: {
-        // "Espresso & Ember" — warm hospitality dark theme
-        base: '#15100D',
-        surface: '#1F1813',
-        surface2: '#2A211B',
-        surface3: '#352A22',
-        line: 'rgba(245,239,230,0.09)',
-        cream: '#F5EFE6',
-        muted: '#A89789',
-        ember: '#EC9A45',
-        emberhi: '#F7B96B',
-        mint: '#54D6A0',
-        berry: '#E26A52'
+        // Theme tokens resolve to CSS variables (see src/renderer/src/index.css),
+        // so the whole palette is swappable at runtime via data-theme. Channels are
+        // space-separated RGB; <alpha-value> lets Tailwind's /opacity modifiers work.
+        base: 'rgb(var(--c-base) / <alpha-value>)',
+        surface: 'rgb(var(--c-surface) / <alpha-value>)',
+        surface2: 'rgb(var(--c-surface2) / <alpha-value>)',
+        surface3: 'rgb(var(--c-surface3) / <alpha-value>)',
+        line: 'var(--c-line)', // hairline already carries its own low alpha
+        cream: 'rgb(var(--c-cream) / <alpha-value>)',
+        muted: 'rgb(var(--c-muted) / <alpha-value>)',
+        ember: 'rgb(var(--c-ember) / <alpha-value>)',
+        emberhi: 'rgb(var(--c-emberhi) / <alpha-value>)',
+        mint: 'rgb(var(--c-mint) / <alpha-value>)',
+        berry: 'rgb(var(--c-berry) / <alpha-value>)'
       },
       fontFamily: {
         display: ['"Bricolage Grotesque Variable"', 'Bricolage Grotesque', 'system-ui', 'sans-serif'],

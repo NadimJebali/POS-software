@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { translate } from '../../../shared/i18n'
 import { formatMoney } from '../../../shared/money'
 import { locales } from '../lib/locales'
+import { applyTheme } from '../lib/themes'
 
 const THANKS_MS = 6000 // how long the thank-you lingers before returning to idle
 
@@ -33,6 +34,10 @@ export default function CustomerDisplay() {
     document.documentElement.lang = lang
     document.documentElement.dir = dir
   }, [lang, dir])
+
+  useEffect(() => {
+    applyTheme(state.theme)
+  }, [state.theme])
 
   const shell = (children) => (
     <div dir={dir} className="h-screen w-screen bg-[#0f172a] text-cream flex flex-col items-center justify-center gap-10 p-16 select-none">

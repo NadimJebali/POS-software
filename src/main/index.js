@@ -23,7 +23,7 @@ const persistFullscreen = (on) => putSetting('fullscreen', on ? '1' : '0')
 const customerBranding = () => {
   const row = settingsRow()
   const s = parseSettings(row)
-  return { shopName: row.shop_name, logo: row.logo, language: s.language, currency: s.currency }
+  return { shopName: row.shop_name, logo: row.logo, language: s.language, currency: s.currency, theme: s.theme }
 }
 
 app.whenReady().then(async () => {

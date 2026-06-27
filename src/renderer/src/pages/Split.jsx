@@ -26,7 +26,7 @@ export default function Split() {
   const [busy, setBusy] = useState(false)
   const [paid, setPaid] = useState(null)
 
-  const branding = { shopName: settings.shop_name, logo: settings.logo, language: settings.language, currency: parseSettings(settings).currency }
+  const branding = { shopName: settings.shop_name, logo: settings.logo, language: settings.language, currency: parseSettings(settings).currency, theme: settings.theme }
   const brandingRef = useRef(branding)
   useEffect(() => {
     brandingRef.current = branding

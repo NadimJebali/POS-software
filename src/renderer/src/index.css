@@ -2,6 +2,84 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Theme tokens. Colors are space-separated RGB channels so Tailwind's alpha
+ * modifiers (bg-mint/15, border-ember/60, …) keep working via
+ * `rgb(var(--c-x) / <alpha-value>)` in tailwind.config.js. Switch themes at
+ * runtime by setting `data-theme` on <html>; :root is the default (Ember).
+ */
+:root,
+[data-theme='ember'] {
+  --c-base: 21 16 13;
+  --c-surface: 31 24 19;
+  --c-surface2: 42 33 27;
+  --c-surface3: 53 42 34;
+  --c-cream: 245 239 230;
+  --c-muted: 168 151 137;
+  --c-ember: 236 154 69;
+  --c-emberhi: 247 185 107;
+  --c-mint: 84 214 160;
+  --c-berry: 226 106 82;
+  --c-line: rgba(245, 239, 230, 0.09);
+  --g-accent: linear-gradient(135deg, #f7b96b, #ec9a45);
+  --g-green: linear-gradient(135deg, #6ee7b7, #34d399);
+  --on-accent: #2a1c0c;
+  --on-green: #06281d;
+  --shadow-accent: rgba(236, 154, 69, 0.7);
+  --shadow-green: rgba(84, 214, 160, 0.7);
+  --glow-1: 236 154 69; /* warm key light */
+  --glow-2: 84 214 160; /* cool fill */
+  --glow-3: 53 42 34; /* central vignette */
+}
+
+/* Midnight — cool slate surfaces, teal accent. */
+[data-theme='midnight'] {
+  --c-base: 14 17 25;
+  --c-surface: 22 27 38;
+  --c-surface2: 31 38 52;
+  --c-surface3: 44 53 70;
+  --c-cream: 233 238 246;
+  --c-muted: 142 156 176;
+  --c-ember: 86 197 226; /* "accent" role: teal */
+  --c-emberhi: 130 216 240;
+  --c-mint: 90 220 172;
+  --c-berry: 240 122 112;
+  --c-line: rgba(233, 238, 246, 0.1);
+  --g-accent: linear-gradient(135deg, #82d8f0, #56c5e2);
+  --g-green: linear-gradient(135deg, #7ef0c8, #34d399);
+  --on-accent: #04222b;
+  --on-green: #06281d;
+  --shadow-accent: rgba(86, 197, 226, 0.7);
+  --shadow-green: rgba(84, 214, 160, 0.7);
+  --glow-1: 86 197 226;
+  --glow-2: 90 220 172;
+  --glow-3: 44 53 70;
+}
+
+/* Vino — deep wine surfaces, champagne-gold accent. */
+[data-theme='vino'] {
+  --c-base: 26 14 18;
+  --c-surface: 38 22 27;
+  --c-surface2: 50 30 37;
+  --c-surface3: 64 40 49;
+  --c-cream: 245 235 238;
+  --c-muted: 184 152 160;
+  --c-ember: 224 184 110; /* "accent" role: gold */
+  --c-emberhi: 240 206 142;
+  --c-mint: 120 205 158;
+  --c-berry: 232 116 108;
+  --c-line: rgba(245, 235, 238, 0.1);
+  --g-accent: linear-gradient(135deg, #f0ce8e, #e0b86e);
+  --g-green: linear-gradient(135deg, #8fe0bb, #4cc699);
+  --on-accent: #2a1c08;
+  --on-green: #06281d;
+  --shadow-accent: rgba(224, 184, 110, 0.7);
+  --shadow-green: rgba(120, 205, 158, 0.7);
+  --glow-1: 224 184 110;
+  --glow-2: 120 205 158;
+  --glow-3: 64 40 49;
+}
+
 @layer base {
   html,
   body,
@@ -15,16 +93,17 @@
     color-scheme: dark; /* native controls (date picker, etc.) render light-on-dark */
   }
 
-  /* Warm ambient glow + subtle vignette behind everything */
+  /* Warm ambient glow + subtle vignette behind everything (theme-aware) */
   body::before {
     content: '';
     position: fixed;
     inset: 0;
     z-index: -2;
     background:
-      radial-gradient(900px 600px at 12% -5%, rgba(236, 154, 69, 0.16), transparent 60%),
-      radial-gradient(800px 700px at 105% 110%, rgba(84, 214, 160, 0.08), transparent 55%),
-      radial-gradient(1200px 800px at 50% 50%, rgba(53, 42, 34, 0.55), transparent 70%);
+      radial-gradient(900px 600px at 12% -5%, rgb(var(--glow-1) / 0.16), transparent 60%),
+      radial-gradient(800px 700px at 105% 110%, rgb(var(--glow-2) / 0.08), transparent 55%),
+      radial-gradient(1200px 800px at 50% 50%, rgb(var(--glow-3) / 0.55), transparent 70%);
+    transition: background 0.4s ease;
   }
 
   /* Fine film grain overlay for texture */
@@ -65,21 +144,22 @@
     @apply inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-lg font-semibold
            transition-all duration-150 active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100
            disabled:cursor-not-allowed;
+    min-height: 3rem; /* finger-sized tap target */
   }
   .btn-accent {
     @apply btn text-base;
-    background: linear-gradient(135deg, #f7b96b, #ec9a45);
-    color: #2a1c0c;
-    box-shadow: 0 10px 26px -12px rgba(236, 154, 69, 0.7);
+    background: var(--g-accent);
+    color: var(--on-accent);
+    box-shadow: 0 10px 26px -12px var(--shadow-accent);
   }
   .btn-accent:hover {
     filter: brightness(1.06);
   }
   .btn-green {
     @apply btn text-base;
-    background: linear-gradient(135deg, #6ee7b7, #34d399);
-    color: #06281d;
-    box-shadow: 0 10px 26px -12px rgba(84, 214, 160, 0.7);
+    background: var(--g-green);
+    color: var(--on-green);
+    box-shadow: 0 10px 26px -12px var(--shadow-green);
   }
   .btn-ghost {
     @apply btn bg-surface2 text-cream hover:bg-surface3;
@@ -106,5 +186,11 @@
     @apply fixed inset-0 z-50 flex items-center justify-center p-6;
     background: rgba(10, 7, 5, 0.6);
     backdrop-filter: blur(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::before {
+    transition: none;
   }
 }

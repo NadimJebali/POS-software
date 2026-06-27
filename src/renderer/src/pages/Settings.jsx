@@ -4,6 +4,7 @@ import { useSettings, formatMoney } from '../lib/settings'
 import { useLicense } from '../lib/license'
 import { useT } from '../lib/i18n'
 import { LANGUAGES } from '../lib/locales'
+import { THEMES, applyTheme } from '../lib/themes'
 import { useDialog } from '../components/Dialog'
 import PageHeader from '../components/PageHeader'
 
@@ -109,6 +110,30 @@ export default function Settings() {
 
         {/* Display */}
         <Section title={t('settings.display')}>
+          <Field label={t('settings.theme')}>
+            <div className="grid grid-cols-3 gap-2">
+              {THEMES.map((th) => (
+                <button
+                  key={th.id}
+                  onClick={() => {
+                    set('theme', th.id)
+                    applyTheme(th.id) // live preview; persisted on Save
+                  }}
+                  className={`flex flex-col items-center gap-2.5 py-3.5 rounded-2xl border transition ${
+                    form.theme === th.id ? 'border-ember ring-2 ring-ember/40 bg-surface2' : 'border-line bg-surface2 hover:bg-surface3'
+                  }`}
+                >
+                  <span className="flex gap-1.5">
+                    {th.swatches.map((c) => (
+                      <span key={c} className="w-5 h-5 rounded-full border border-black/20" style={{ background: c }} />
+                    ))}
+                  </span>
+                  <span className="text-sm font-semibold text-cream">{th.label}</span>
+                </button>
+              ))}
+            </div>
+          </Field>
+
           <Field label={t('settings.fullscreen')}>
             <div className="grid grid-cols-2 gap-2">
               {[['0', t('settings.windowed')], ['1', t('settings.fullscreen')]].map(([v, label]) => (
