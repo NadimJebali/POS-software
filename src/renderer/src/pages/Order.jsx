@@ -221,18 +221,18 @@ export default function Order() {
                 {item.modifiers && <div className="text-xs text-ember truncate">{item.modifiers}</div>}
                 <div className="text-sm text-muted tnum">{t('order.eachPrice', { price: money(item.unit_price) })}</div>
               </div>
-              <div className="flex items-center gap-1.5">
-                <button className="w-9 h-9 rounded-xl bg-surface2 border border-line text-2xl leading-none active:scale-90" onClick={() => changeQty(item, -1)}>−</button>
+              <div className="flex items-center gap-2">
+                <button className="w-11 h-11 rounded-xl bg-surface2 border border-line text-2xl leading-none active:scale-90" onClick={() => changeQty(item, -1)}>−</button>
                 <span className="w-7 text-center text-lg font-bold tnum">{item.qty}</span>
                 <button
-                  className="w-9 h-9 rounded-xl bg-surface2 border border-line text-2xl leading-none active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
+                  className="w-11 h-11 rounded-xl bg-surface2 border border-line text-2xl leading-none active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
                   disabled={item.product_id != null && remainingFor(item.product_id) <= 0}
                   onClick={() => changeQty(item, +1)}
                 >
                   +
                 </button>
               </div>
-              <div className="w-[88px] text-end font-display font-bold tnum">{money(item.unit_price * item.qty)}</div>
+              <div className="w-[84px] text-end font-display font-bold tnum">{money(item.unit_price * item.qty)}</div>
             </div>
           ))}
         </div>

@@ -234,10 +234,10 @@ function OrderDetail({ order, isAdmin, canDelete, onClose, onReprint, printing, 
               {it.modifiers && <span className="block text-xs text-ember">{it.modifiers}</span>}
             </span>
             {edit ? (
-              <span className="flex items-center gap-1.5">
-                <button className="w-8 h-8 rounded-lg bg-surface2 border border-line text-xl leading-none active:scale-90" onClick={() => setQ(it.id, q(it) - 1)}>−</button>
-                <span className="w-6 text-center font-bold tnum">{q(it)}</span>
-                <button className="w-8 h-8 rounded-lg bg-surface2 border border-line text-xl leading-none active:scale-90" onClick={() => setQ(it.id, q(it) + 1)}>+</button>
+              <span className="flex items-center gap-2">
+                <button className="w-11 h-11 rounded-xl bg-surface2 border border-line text-2xl leading-none active:scale-90" onClick={() => setQ(it.id, q(it) - 1)}>−</button>
+                <span className="w-7 text-center font-bold tnum">{q(it)}</span>
+                <button className="w-11 h-11 rounded-xl bg-surface2 border border-line text-2xl leading-none active:scale-90" onClick={() => setQ(it.id, q(it) + 1)}>+</button>
               </span>
             ) : (
               <span className="font-semibold tnum">{money(it.unit_price * it.qty)}</span>
