@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
 import { money } from '../lib/settings'
+import { isSplit } from '../../../shared/split'
 import { useAuth } from '../lib/auth'
 import { useT } from '../lib/i18n'
 import PageHeader from '../components/PageHeader'
@@ -175,6 +176,7 @@ function OrderDetail({ order, isAdmin, canDelete, onClose, onReprint, printing, 
   const [disc, setDisc] = useState(null) // null = keep existing; number = percent
   const when = new Date(order.paid_at + 'Z').toLocaleString()
   const deleted = order.status === 'cancelled'
+  const split = isSplit(order.payments)
 
   // Reset the edit state whenever a different order object arrives (opening another
   // order, or the refreshed copy after a save) — done during render, not in an effect.
@@ -267,15 +269,31 @@ function OrderDetail({ order, isAdmin, canDelete, onClose, onReprint, printing, 
           <span className="font-display text-2xl font-bold text-ember tnum">{money(total)}</span>
         </div>
         {!edit &&
-          (order.payments || []).map((p) => (
+          (order.payments || []).map((p, i) => (
             <div key={p.id} className="flex justify-between items-center rounded-xl bg-surface2/70 border border-line px-4 py-2 mt-1">
-              <span className="chip bg-surface3 text-cream">{p.method === 'card' ? t('checkout.card') : t('checkout.cash')}</span>
-              <span className="font-display font-bold text-cream tnum">{money(p.amount)}</span>
+              <span className="chip bg-surface3 text-cream">
+                {split ? `${t('split.person', { n: i + 1 })} · ` : ''}
+                {p.method === 'card' ? t('checkout.card') : t('checkout.cash')}
+              </span>
+              {split ? (
+                <span className="tnum text-cream">
+                  {money(p.amount - (p.change || 0))}
+                  {p.change > 0 && <span className="text-mint"> · {t('split.change')} {money(p.change)}</span>}
+                </span>
+              ) : (
+                <span className="font-display font-bold text-cream tnum">{money(p.amount)}</span>
+              )}
             </div>
           ))}
-        {!edit && order.change_due > 0 && (
+        {!edit && !split && order.change_due > 0 && (
           <div className="flex justify-between items-center rounded-2xl bg-mint/15 border border-mint/40 px-4 py-2.5 mt-2">
             <span className="text-mint font-semibold">{t('history.changeGiven')}</span>
+            <span className="font-display text-xl font-bold text-mint tnum">{money(order.change_due)}</span>
+          </div>
+        )}
+        {!edit && split && order.change_due > 0 && (
+          <div className="flex justify-between items-center rounded-2xl bg-mint/15 border border-mint/40 px-4 py-2.5 mt-2">
+            <span className="text-mint font-semibold">{t('split.totalChange')}</span>
             <span className="font-display text-xl font-bold text-mint tnum">{money(order.change_due)}</span>
           </div>
         )}

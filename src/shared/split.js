@@ -33,3 +33,12 @@ export function evaluateTender(method, tendered, share) {
   }
   return tendered !== share ? { ok: false, reason: 'card-mismatch' } : { ok: true, change: 0 }
 }
+
+/**
+ * Was this order settled as a by-item split? A split records per-person change on
+ * every payment row; the normal flow leaves `change` null and tracks change once
+ * at the order level. So any payment carrying a non-null `change` marks a split.
+ */
+export function isSplit(payments) {
+  return (payments || []).some((p) => p.change != null)
+}

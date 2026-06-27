@@ -2,7 +2,7 @@
 // Both the renderer (live preview) and the Order domain (authoritative settle)
 // use these, so the cashier's on-screen shares always match what gets recorded.
 import { describe, test, expect } from 'vitest'
-import { splitShares, evaluateTender } from '../src/shared/split'
+import { splitShares, evaluateTender, isSplit } from '../src/shared/split'
 
 describe('splitShares — apportion a (possibly discounted) total', () => {
   test('with no discount, each share is just its pre-discount subtotal', () => {
@@ -42,5 +42,20 @@ describe('evaluateTender — the per-person cash/card rule', () => {
 
   test('card not equal to the share is rejected', () => {
     expect(evaluateTender('card', 12000, 10000)).toEqual({ ok: false, reason: 'card-mismatch' })
+  })
+})
+
+describe('isSplit — was this order settled as a by-item split?', () => {
+  test('true when any payment carries per-person change', () => {
+    expect(isSplit([{ method: 'cash', amount: 20000, change: 10000 }, { method: 'card', amount: 40000, change: 0 }])).toBe(true)
+  })
+
+  test('false for a normal order whose payments have no per-person change', () => {
+    expect(isSplit([{ method: 'cash', amount: 5000, change: null }])).toBe(false)
+  })
+
+  test('false when there are no payments', () => {
+    expect(isSplit([])).toBe(false)
+    expect(isSplit(undefined)).toBe(false)
   })
 })

@@ -2,6 +2,7 @@ import { BrowserWindow } from 'electron'
 import { mt, isRtlLang } from './i18n'
 import { formatMoney } from '../shared/money'
 import { parseSettings } from '../shared/settings'
+import { isSplit } from '../shared/split'
 
 const esc = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
@@ -27,8 +28,20 @@ function receiptHtml(order, s) {
     )
     .join('')
 
+  // For a by-item split, each payment is one person: show their tender and, below
+  // it, the change they got back. A normal order keeps the single method+amount line.
+  const split = isSplit(order.payments)
+  const methodLabel = (p) => (p.method === 'card' ? mt(lang, 'receipt.card') : mt(lang, 'receipt.cash'))
   const payments = (order.payments || [])
-    .map((p) => `<div class="line"><span>${esc(p.method === 'card' ? mt(lang, 'receipt.card') : mt(lang, 'receipt.cash'))}</span><span>${money(p.amount, s)}</span></div>`)
+    .map((p, i) => {
+      const label = split ? `${mt(lang, 'receipt.person')} ${i + 1} · ${methodLabel(p)}` : methodLabel(p)
+      const line = `<div class="line"><span>${esc(label)}</span><span>${money(p.amount, s)}</span></div>`
+      const chg =
+        split && p.change > 0
+          ? `<div class="line" style="font-size:11px;color:#444;"><span>${esc(mt(lang, 'receipt.change'))}</span><span>-${money(p.change, s)}</span></div>`
+          : ''
+      return line + chg
+    })
     .join('')
 
   const logo = s.logo ? `<img src="${esc(s.logo)}" alt="" style="max-width:60%;max-height:80px;margin:0 auto 6px;display:block;" />` : ''
