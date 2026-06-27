@@ -47,4 +47,14 @@ describe('parseSettings', () => {
     expect(parseSettings({ fullscreen: '1' }).fullscreen).toBe(true)
     expect(DEFAULT_SETTINGS.fullscreen).toBe('0')
   })
+
+  test('parses customer-display settings, defaulting to off with no chosen monitor', () => {
+    expect(parseSettings({}).customerDisplay).toBe(false)
+    expect(parseSettings({}).customerDisplayMonitor).toBe('')
+    expect(parseSettings({ customer_display: '1', customer_display_monitor: '42' })).toMatchObject({
+      customerDisplay: true,
+      customerDisplayMonitor: '42'
+    })
+    expect(DEFAULT_SETTINGS.customer_display).toBe('0')
+  })
 })

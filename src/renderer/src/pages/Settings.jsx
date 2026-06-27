@@ -21,12 +21,14 @@ export default function Settings() {
   const { t } = useT()
   const [form, setForm] = useState(settings)
   const [printers, setPrinters] = useState([])
+  const [displays, setDisplays] = useState([])
   const [savedAt, setSavedAt] = useState(0)
   const fileRef = useRef(null)
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
   useEffect(() => {
     api.printers.list().then(setPrinters).catch(() => setPrinters([]))
+    api.displays.list().then(setDisplays).catch(() => setDisplays([]))
   }, [])
 
   const onSave = async () => {
@@ -123,6 +125,41 @@ export default function Settings() {
               ))}
             </div>
             <p className="text-muted text-sm mt-2">{t('settings.fullscreenHint')}</p>
+          </Field>
+
+          <Field label={t('settings.custDisplay')}>
+            <div className="grid grid-cols-2 gap-2">
+              {[['0', t('settings.off')], ['1', t('settings.on')]].map(([v, label]) => (
+                <button
+                  key={v}
+                  onClick={() => {
+                    set('customer_display', v)
+                    api.customer.enable(v === '1', form.customer_display_monitor || '')
+                  }}
+                  className={btn(form.customer_display === v)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {form.customer_display === '1' && displays.length > 1 && (
+              <select
+                className="input mt-2"
+                value={form.customer_display_monitor || ''}
+                onChange={(e) => {
+                  set('customer_display_monitor', e.target.value)
+                  api.customer.enable(true, e.target.value)
+                }}
+              >
+                <option value="">{t('settings.monitor')}: {t('common.none')}</option>
+                {displays.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {t('settings.monitor')} {d.label}{d.primary ? t('settings.defaultSuffix') : ''}
+                  </option>
+                ))}
+              </select>
+            )}
+            <p className="text-muted text-sm mt-2">{t('settings.custDisplayHint')}</p>
           </Field>
         </Section>
 

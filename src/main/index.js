@@ -1,7 +1,7 @@
 import { app, Menu, ipcMain } from 'electron'
 import { initDatabase } from './db'
 import { registerIpc } from './ipc'
-import { createMainWindow, setMainFullscreen } from './windows'
+import { createMainWindow, setMainFullscreen, syncCustomerDisplay, initDisplayWatch, listDisplays } from './windows'
 import { parseSettings } from '../shared/settings'
 
 let db
@@ -12,11 +12,18 @@ const isDev = !!process.env.ELECTRON_RENDERER_URL
 // Read the raw settings row (key/value map) straight from the db.
 const settingsRow = () => Object.fromEntries(db.prepare('SELECT key, value FROM settings').all().map((r) => [r.key, r.value]))
 
+// Upsert a single setting key.
+const putSetting = (key, value) =>
+  db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(key, String(value))
+
 // Persist the fullscreen choice so the window opens the same way next launch.
-const persistFullscreen = (on) =>
-  db
-    .prepare("INSERT INTO settings (key, value) VALUES ('fullscreen', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
-    .run(on ? '1' : '0')
+const persistFullscreen = (on) => putSetting('fullscreen', on ? '1' : '0')
+
+// What the customer display shows when idle (and the language/RTL it uses).
+const customerBranding = () => {
+  const row = settingsRow()
+  return { shopName: row.shop_name, logo: row.logo, language: parseSettings(row).language }
+}
 
 app.whenReady().then(async () => {
   // Remove the default application menu in production (strips the reload / DevTools
@@ -27,9 +34,20 @@ app.whenReady().then(async () => {
 
   createMainWindow({ isDev, fullscreen: parseSettings(settingsRow()).fullscreen, onFullscreenChange: persistFullscreen })
 
-  // Window control from the renderer (Settings → Display toggle). Just flips the
-  // main window and persists; carries no data, so it sits outside the IPC auth gate.
+  // Bring up the customer display (if enabled) and keep it in step with the monitors.
+  const cfg = parseSettings(settingsRow())
+  initDisplayWatch()
+  syncCustomerDisplay({ enabled: cfg.customerDisplay, monitorId: cfg.customerDisplayMonitor, branding: customerBranding() })
+
+  // Window controls from the renderer (Settings → Display). These just drive the
+  // windows and persist; they carry no data, so they sit outside the IPC auth gate.
   ipcMain.handle('window:setFullscreen', (_e, { on }) => setMainFullscreen(!!on))
+  ipcMain.handle('displays:list', () => listDisplays())
+  ipcMain.handle('customer:enable', (_e, { on, monitorId }) => {
+    putSetting('customer_display', on ? '1' : '0')
+    if (monitorId != null) putSetting('customer_display_monitor', monitorId)
+    syncCustomerDisplay({ enabled: !!on, monitorId: monitorId ?? settingsRow().customer_display_monitor, branding: customerBranding() })
+  })
 })
 
 // Single-window kiosk app: closing the window exits everywhere (including macOS —

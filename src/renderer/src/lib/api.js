@@ -79,6 +79,12 @@ export const api = {
   window: {
     setFullscreen: (on) => call('window:setFullscreen', { on })
   },
+  displays: {
+    list: () => call('displays:list')
+  },
+  customer: {
+    enable: (on, monitorId) => call('customer:enable', { on, monitorId })
+  },
   analytics: {
     overview: () => call('analytics:overview'),
     series: (period) => call('analytics:series', { period }),

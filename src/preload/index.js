@@ -15,7 +15,7 @@ const CHANNELS = [
   'orders:addPayment', 'orders:removePayment', 'orders:complete', 'orders:completeSplit', 'orders:history',
   'orders:cancelPaid', 'orders:updatePaid',
   'receipt:print',
-  'window:setFullscreen',
+  'window:setFullscreen', 'displays:list', 'customer:enable',
   'analytics:overview', 'analytics:series', 'analytics:topProducts', 'analytics:byServer', 'analytics:recentOrders', 'analytics:exportPdf',
   'db:export', 'db:import'
 ]

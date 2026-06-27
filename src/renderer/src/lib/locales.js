@@ -50,6 +50,9 @@ export const locales = {
       complete: 'Complete split', completeReturn: 'Complete · return {amount}', processing: 'Processing…', assignAll: 'Assign every item to finish',
       none: 'No items yet', done: 'Done', splitComplete: 'Split complete', totalChange: 'Total change'
     },
+    customer: {
+      welcome: 'Welcome', amountDue: 'Amount to pay', change: 'Change', total: 'Total', thankYou: 'Thank you!', person: 'Person {n}', share: 'To pay'
+    },
     products: {
       title: 'Menu', count: '{n} products', categories: 'Categories', allProducts: 'All products · {n}', addProduct: 'Add product',
       category: 'Category', lowWarn: '{n} product(s) are low or out of stock (threshold {t})', name: 'Name', price: 'Price',
@@ -106,6 +109,7 @@ export const locales = {
       printer: 'Printer', receiptPrinter: 'Receipt printer', printingMode: 'Printing mode', showDialog: 'Show dialog',
       printSilently: 'Print silently', language: 'Language', languageHint: 'Changes the language across the whole app.',
       display: 'Display', fullscreen: 'Fullscreen', windowed: 'Windowed', fullscreenHint: 'Run the app fullscreen on the touchscreen, or windowed for setup. Press F11 to toggle anytime.',
+      custDisplay: 'Customer display', custDisplayHint: 'Show the amount due and change on a second monitor facing the customer. Needs a second screen.', monitor: 'Monitor', on: 'On', off: 'Off',
       posAfter: 'After (12.500 DT)', posBefore: 'Before ($12.50)', paperWidthMm: '{w} mm',
       printerDefault: 'System default / ask each time', defaultSuffix: ' (default)',
       autoLockHint: 'When set, the app signs the current user out after this many minutes with no activity, so an unattended terminal returns to the login screen.',
@@ -170,6 +174,9 @@ export const locales = {
       complete: 'Terminer le partage', completeReturn: 'Terminer · rendre {amount}', processing: 'Traitement…', assignAll: 'Attribuez chaque article pour terminer',
       none: 'Aucun article', done: 'Terminé', splitComplete: 'Partage terminé', totalChange: 'Monnaie totale'
     },
+    customer: {
+      welcome: 'Bienvenue', amountDue: 'Montant à payer', change: 'Monnaie', total: 'Total', thankYou: 'Merci !', person: 'Personne {n}', share: 'À payer'
+    },
     products: {
       title: 'Menu', count: '{n} produits', categories: 'Catégories', allProducts: 'Tous les produits · {n}', addProduct: 'Ajouter un produit',
       category: 'Catégorie', lowWarn: '{n} produit(s) en stock bas ou épuisé(s) (seuil {t})', name: 'Nom', price: 'Prix',
@@ -226,6 +233,7 @@ export const locales = {
       printer: 'Imprimante', receiptPrinter: 'Imprimante de reçus', printingMode: 'Mode d’impression', showDialog: 'Afficher la boîte',
       printSilently: 'Impression silencieuse', language: 'Langue', languageHint: 'Change la langue dans toute l’application.',
       display: 'Affichage', fullscreen: 'Plein écran', windowed: 'Fenêtré', fullscreenHint: 'Lancez l’app en plein écran sur l’écran tactile, ou en fenêtré pour la configuration. Touche F11 pour basculer.',
+      custDisplay: 'Écran client', custDisplayHint: 'Affichez le montant dû et la monnaie sur un second écran face au client. Nécessite un deuxième écran.', monitor: 'Écran', on: 'Activé', off: 'Désactivé',
       posAfter: 'Après (12.500 DT)', posBefore: 'Avant ($12.50)', paperWidthMm: '{w} mm',
       printerDefault: 'Par défaut / demander à chaque fois', defaultSuffix: ' (par défaut)',
       autoLockHint: 'Si activé, l’application déconnecte l’utilisateur après ce nombre de minutes d’inactivité, afin qu’un terminal laissé sans surveillance revienne à l’écran de connexion.',
@@ -290,6 +298,9 @@ export const locales = {
       complete: 'إتمام التقسيم', completeReturn: 'إتمام · أرجِع {amount}', processing: 'جارٍ المعالجة…', assignAll: 'أسنِد كل عنصر للإنهاء',
       none: 'لا عناصر', done: 'تم', splitComplete: 'تم التقسيم', totalChange: 'إجمالي الباقي'
     },
+    customer: {
+      welcome: 'أهلاً وسهلاً', amountDue: 'المبلغ المطلوب', change: 'الباقي', total: 'الإجمالي', thankYou: 'شكراً!', person: 'شخص {n}', share: 'للدفع'
+    },
     products: {
       title: 'القائمة', count: '{n} منتجات', categories: 'الفئات', allProducts: 'كل المنتجات · {n}', addProduct: 'إضافة منتج',
       category: 'الفئة', lowWarn: '{n} منتج بمخزون منخفض أو نافد (الحد {t})', name: 'الاسم', price: 'السعر',
@@ -346,6 +357,7 @@ export const locales = {
       printer: 'الطابعة', receiptPrinter: 'طابعة الإيصالات', printingMode: 'وضع الطباعة', showDialog: 'إظهار النافذة',
       printSilently: 'طباعة صامتة', language: 'اللغة', languageHint: 'تغيّر لغة التطبيق بالكامل.',
       display: 'العرض', fullscreen: 'ملء الشاشة', windowed: 'نافذة', fullscreenHint: 'شغّل التطبيق بملء الشاشة على الشاشة اللمسية، أو في نافذة للإعداد. اضغط F11 للتبديل في أي وقت.',
+      custDisplay: 'شاشة الزبون', custDisplayHint: 'اعرض المبلغ المطلوب والباقي على شاشة ثانية مواجهة للزبون. تحتاج شاشة ثانية.', monitor: 'الشاشة', on: 'تشغيل', off: 'إيقاف',
       posAfter: 'بعد (12.500 DT)', posBefore: 'قبل ($12.50)', paperWidthMm: '{w} مم',
       printerDefault: 'الافتراضي / السؤال في كل مرة', defaultSuffix: ' (افتراضي)',
       autoLockHint: 'عند التفعيل، يُسجّل التطبيق خروج المستخدم الحالي بعد هذا العدد من دقائق الخمول، فيعود الطرفية غير المراقبة إلى شاشة تسجيل الدخول.',

@@ -18,7 +18,9 @@ export const DEFAULT_SETTINGS = {
   low_stock_threshold: '5', // warn when product stock is at or below this
   auto_lock_minutes: '0', // sign out after this many idle minutes (0 = never)
   language: 'en', // UI language: 'en' | 'fr' | 'ar'
-  fullscreen: '0' // run the main window fullscreen ('1') or windowed ('0')
+  fullscreen: '0', // run the main window fullscreen ('1') or windowed ('0')
+  customer_display: '0', // show the customer-facing second screen ('1') or not ('0')
+  customer_display_monitor: '' // chosen monitor id for the customer display (''=auto: first non-primary)
 }
 
 const intOr = (value, fallback) => {
@@ -42,6 +44,8 @@ export function parseSettings(raw = {}) {
     paperWidth: s.paper_width,
     language: s.language,
     fullscreen: s.fullscreen === '1',
+    customerDisplay: s.customer_display === '1',
+    customerDisplayMonitor: s.customer_display_monitor,
     currency: {
       symbol: s.currency_symbol,
       decimals: clamp(intOr(s.currency_decimals, 3), 0, 3),
