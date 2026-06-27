@@ -67,6 +67,7 @@ export const api = {
     addPayment: (orderId, method, amount) => call('orders:addPayment', { orderId, method, amount }),
     removePayment: (paymentId) => call('orders:removePayment', { paymentId }),
     complete: (orderId) => call('orders:complete', { orderId }),
+    completeSplit: (orderId, groups) => call('orders:completeSplit', { orderId, groups }),
     history: (date) => call('orders:history', { date }),
     cancelPaid: (orderId) => call('orders:cancelPaid', { orderId }),
     updatePaid: (orderId, items, discountType, discountValue) =>

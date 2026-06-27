@@ -1,18 +1,4 @@
-// Split a discounted total across people in proportion to their pre-discount
-// subtotals. Each share is rounded to whole millimes, then any rounding drift is
-// pushed onto the largest share (ties -> first) so the shares sum to `total`
-// exactly. Returns all-zero shares when there is nothing to apportion.
-function distributeShares(preSubs, gross, total) {
-  if (gross <= 0) return preSubs.map(() => 0)
-  const shares = preSubs.map((sub) => Math.round((sub * total) / gross))
-  const drift = total - shares.reduce((s, x) => s + x, 0)
-  if (drift !== 0 && shares.length) {
-    let largest = 0
-    for (let i = 1; i < preSubs.length; i++) if (preSubs[i] > preSubs[largest]) largest = i
-    shares[largest] += drift
-  }
-  return shares
-}
+import { splitShares, evaluateTender } from '../shared/split'
 
 /**
  * The Order domain: the full lifecycle of an order behind one interface.
@@ -186,15 +172,19 @@ export function createOrders(db) {
     // Each person's share is their items' pre-discount subtotal, scaled down by the
     // order's discount so the shares sum to order.total (not the gross subtotal).
     const preSubtotalOf = (g) => (g.items || []).reduce((s, it) => s + lineById.get(it.itemId).unit_price * it.qty, 0)
-    const shares = distributeShares(gs.map(preSubtotalOf), order.subtotal, order.total)
+    const shares = splitShares(gs.map(preSubtotalOf), order.subtotal, order.total)
 
     const settled = gs.map((g, i) => {
-      const share = shares[i]
       const method = g.method || 'cash'
-      if (method !== 'cash' && g.tendered !== share) throw new Error('A card payment must equal the share exactly')
-      if (method === 'cash' && g.tendered < share) throw new Error('Cash tendered does not cover the share')
-      const change = method === 'cash' ? g.tendered - share : 0
-      return { method, tendered: g.tendered, change }
+      const result = evaluateTender(method, g.tendered, shares[i])
+      if (!result.ok) {
+        throw new Error(
+          result.reason === 'card-mismatch'
+            ? 'A card payment must equal the share exactly'
+            : 'Cash tendered does not cover the share'
+        )
+      }
+      return { method, tendered: g.tendered, change: result.change }
     })
 
     const cashReceived = settled.filter((s) => s.method === 'cash').reduce((s, c) => s + c.tendered, 0)

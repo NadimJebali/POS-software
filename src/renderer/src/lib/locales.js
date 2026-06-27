@@ -42,6 +42,14 @@ export const locales = {
       customDiscount: 'Custom discount', percentage: 'Percentage', fixedAmount: 'Fixed amount', apply: 'Apply', printFailed: 'Print failed',
       percentPh: '% off (0-100)', amountPh: 'amount off', checkoutTable: 'Checkout · Table {label}'
     },
+    split: {
+      splitBill: 'Split bill', cantSplit: 'Remove payments first to split', title: 'Split bill', titleTable: 'Split · Table {label}',
+      person: 'Person {n}', addPerson: 'Add person', remove: 'Remove', hint: 'Pick a person, then tap items to assign',
+      unassigned: '{n} item(s) left to assign', allAssigned: 'All items assigned', share: 'Share', tendered: 'Tendered',
+      change: 'Change', short: '{amount} short', exact: 'Exact', settled: 'Settled', cash: 'Cash', card: 'Card',
+      complete: 'Complete split', completeReturn: 'Complete · return {amount}', processing: 'Processing…', assignAll: 'Assign every item to finish',
+      none: 'No items yet', done: 'Done', splitComplete: 'Split complete', totalChange: 'Total change'
+    },
     products: {
       title: 'Menu', count: '{n} products', categories: 'Categories', allProducts: 'All products · {n}', addProduct: 'Add product',
       category: 'Category', lowWarn: '{n} product(s) are low or out of stock (threshold {t})', name: 'Name', price: 'Price',
@@ -153,6 +161,14 @@ export const locales = {
       customDiscount: 'Remise personnalisée', percentage: 'Pourcentage', fixedAmount: 'Montant fixe', apply: 'Appliquer', printFailed: 'Échec de l’impression',
       percentPh: '% de remise (0-100)', amountPh: 'montant de remise', checkoutTable: 'Encaissement · Table {label}'
     },
+    split: {
+      splitBill: 'Partager l’addition', cantSplit: 'Retirez les paiements pour partager', title: 'Partager l’addition', titleTable: 'Partage · Table {label}',
+      person: 'Personne {n}', addPerson: 'Ajouter une personne', remove: 'Retirer', hint: 'Choisissez une personne, puis touchez les articles à attribuer',
+      unassigned: '{n} article(s) à attribuer', allAssigned: 'Tous les articles attribués', share: 'Part', tendered: 'Remis',
+      change: 'Monnaie', short: 'manque {amount}', exact: 'Exact', settled: 'Réglé', cash: 'Espèces', card: 'Carte',
+      complete: 'Terminer le partage', completeReturn: 'Terminer · rendre {amount}', processing: 'Traitement…', assignAll: 'Attribuez chaque article pour terminer',
+      none: 'Aucun article', done: 'Terminé', splitComplete: 'Partage terminé', totalChange: 'Monnaie totale'
+    },
     products: {
       title: 'Menu', count: '{n} produits', categories: 'Catégories', allProducts: 'Tous les produits · {n}', addProduct: 'Ajouter un produit',
       category: 'Catégorie', lowWarn: '{n} produit(s) en stock bas ou épuisé(s) (seuil {t})', name: 'Nom', price: 'Prix',
@@ -263,6 +279,14 @@ export const locales = {
       paidByCard: 'مدفوع بالبطاقة', paidInCash: 'مدفوع نقدًا', done: 'تم', printReceipt: 'طباعة الإيصال', cannotComplete: 'تعذّر إتمام البيع',
       customDiscount: 'خصم مخصّص', percentage: 'نسبة مئوية', fixedAmount: 'مبلغ ثابت', apply: 'تطبيق', printFailed: 'فشلت الطباعة',
       percentPh: '٪ الخصم (0-100)', amountPh: 'مبلغ الخصم', checkoutTable: 'الدفع · طاولة {label}'
+    },
+    split: {
+      splitBill: 'تقسيم الفاتورة', cantSplit: 'أزِل المدفوعات أولاً للتقسيم', title: 'تقسيم الفاتورة', titleTable: 'تقسيم · طاولة {label}',
+      person: 'شخص {n}', addPerson: 'إضافة شخص', remove: 'إزالة', hint: 'اختر شخصًا ثم المس العناصر لإسنادها',
+      unassigned: 'بقي {n} عنصر للإسناد', allAssigned: 'تم إسناد كل العناصر', share: 'الحصة', tendered: 'المدفوع',
+      change: 'الباقي', short: 'ناقص {amount}', exact: 'بالضبط', settled: 'مسوّى', cash: 'نقدًا', card: 'بطاقة',
+      complete: 'إتمام التقسيم', completeReturn: 'إتمام · أرجِع {amount}', processing: 'جارٍ المعالجة…', assignAll: 'أسنِد كل عنصر للإنهاء',
+      none: 'لا عناصر', done: 'تم', splitComplete: 'تم التقسيم', totalChange: 'إجمالي الباقي'
     },
     products: {
       title: 'القائمة', count: '{n} منتجات', categories: 'الفئات', allProducts: 'كل المنتجات · {n}', addProduct: 'إضافة منتج',

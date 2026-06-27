@@ -414,6 +414,18 @@ export function registerIpc(db) {
 
     'orders:complete': ({ orderId }) => orderDomain.complete({ orderId }),
 
+    // By-item split: coerce every person's tender and assigned quantities here
+    // (the renderer is untrusted); the domain computes shares and enforces the rules.
+    'orders:completeSplit': ({ orderId, groups }) =>
+      orderDomain.completeSplit({
+        orderId,
+        groups: (groups || []).map((g) => ({
+          method: g.method === 'card' ? 'card' : 'cash',
+          tendered: intIn(g.tendered, { min: 0, name: 'Tender' }),
+          items: (g.items || []).map((it) => ({ itemId: it.itemId, qty: intIn(it.qty, { min: 1, name: 'Quantity' }) }))
+        }))
+      }),
+
     // ---------------- History admin actions ----------------
     // Delete a paid order: restore stock and mark it cancelled. It stays in history,
     // tagged with who deleted it, but is excluded from revenue/analytics.

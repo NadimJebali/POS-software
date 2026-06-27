@@ -8,6 +8,7 @@ import Activate from './pages/Activate'
 import Floor from './pages/Floor'
 import Order from './pages/Order'
 import Checkout from './pages/Checkout'
+import Split from './pages/Split'
 import Products from './pages/Products'
 import TablesManage from './pages/TablesManage'
 import Analytics from './pages/Analytics'
@@ -45,6 +46,7 @@ export default function App() {
       {/* Full-screen flows without the sidebar */}
       <Route path="/order/:tableId" element={<Order />} />
       <Route path="/checkout/:orderId" element={<Checkout />} />
+      <Route path="/split/:orderId" element={<Split />} />
     </Routes>
   )
 }

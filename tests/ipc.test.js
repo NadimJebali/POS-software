@@ -205,6 +205,33 @@ describe('order lifecycle, stock reservation & payments', () => {
   })
 })
 
+describe('split checkout (orders:completeSplit)', () => {
+  test('settles an order as a by-item split with per-person change, coercing tenders at the boundary', async () => {
+    const cat = await invoke('categories:create', { name: 'SplitCat' })
+    const prod = await invoke('products:create', { category_id: cat.id, name: 'SplitItem', price: 2000, stock: 10 })
+    const table = await invoke('tables:create', { label: 'S1', seats: 2 })
+    let order = await invoke('orders:openForTable', { tableId: table.id })
+    order = await invoke('orders:addItem', { orderId: order.id, productId: prod.id })
+    order = await invoke('orders:setItemQty', { itemId: order.items[0].id, qty: 2 }) // total 4000
+    const itemId = order.items[0].id
+
+    const done = await invoke('orders:completeSplit', {
+      orderId: order.id,
+      groups: [
+        { items: [{ itemId, qty: '1' }], method: 'cash', tendered: '5000' }, // strings -> coerced; share 2000, change 3000
+        { items: [{ itemId, qty: 1 }], method: 'card', tendered: 2000 } //         share 2000, change 0
+      ]
+    })
+
+    expect(done.status).toBe('paid')
+    expect(done.total).toBe(4000)
+    expect(done.change_due).toBe(3000)
+    const cash = done.payments.find((p) => p.method === 'cash')
+    expect(cash.amount).toBe(5000)
+    expect(cash.change).toBe(3000)
+  })
+})
+
 describe('analytics time bucketing', () => {
   test('weekNumber matches SQLite strftime(%W) across several years', () => {
     const sql = db.prepare("SELECT CAST(strftime('%W', ?) AS INTEGER) AS w")

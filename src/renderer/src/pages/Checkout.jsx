@@ -231,6 +231,16 @@ export default function Checkout() {
           </div>
         )}
 
+        {/* split the bill (only on a clean slate — no payments added yet) */}
+        <button
+          className="btn-ghost"
+          disabled={order.payments.length > 0}
+          title={order.payments.length > 0 ? t('split.cantSplit') : undefined}
+          onClick={() => navigate(`/split/${order.id}`)}
+        >
+          {t('split.splitBill')}
+        </button>
+
         {/* method toggle */}
         <div className="grid grid-cols-2 gap-2">
           {['cash', 'card'].map((m) => (
