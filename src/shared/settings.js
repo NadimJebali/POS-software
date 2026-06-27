@@ -17,7 +17,8 @@ export const DEFAULT_SETTINGS = {
   paper_width: '80', // mm: '58' | '80'
   low_stock_threshold: '5', // warn when product stock is at or below this
   auto_lock_minutes: '0', // sign out after this many idle minutes (0 = never)
-  language: 'en' // UI language: 'en' | 'fr' | 'ar'
+  language: 'en', // UI language: 'en' | 'fr' | 'ar'
+  fullscreen: '0' // run the main window fullscreen ('1') or windowed ('0')
 }
 
 const intOr = (value, fallback) => {
@@ -40,6 +41,7 @@ export function parseSettings(raw = {}) {
     printerName: s.printer_name,
     paperWidth: s.paper_width,
     language: s.language,
+    fullscreen: s.fullscreen === '1',
     currency: {
       symbol: s.currency_symbol,
       decimals: clamp(intOr(s.currency_decimals, 3), 0, 3),

@@ -41,4 +41,10 @@ describe('parseSettings', () => {
     expect(DEFAULT_SETTINGS.currency_decimals).toBe('3')
     expect(DEFAULT_SETTINGS.language).toBe('en')
   })
+
+  test('parses the fullscreen flag, defaulting to windowed (off)', () => {
+    expect(parseSettings({}).fullscreen).toBe(false)
+    expect(parseSettings({ fullscreen: '1' }).fullscreen).toBe(true)
+    expect(DEFAULT_SETTINGS.fullscreen).toBe('0')
+  })
 })

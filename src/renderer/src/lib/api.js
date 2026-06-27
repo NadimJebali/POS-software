@@ -76,6 +76,9 @@ export const api = {
   receipt: {
     print: (orderId) => call('receipt:print', { orderId })
   },
+  window: {
+    setFullscreen: (on) => call('window:setFullscreen', { on })
+  },
   analytics: {
     overview: () => call('analytics:overview'),
     series: (period) => call('analytics:series', { period }),

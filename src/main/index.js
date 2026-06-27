@@ -1,51 +1,22 @@
-import { app, BrowserWindow, Menu } from 'electron'
-import { join } from 'path'
+import { app, Menu, ipcMain } from 'electron'
 import { initDatabase } from './db'
 import { registerIpc } from './ipc'
+import { createMainWindow, setMainFullscreen } from './windows'
+import { parseSettings } from '../shared/settings'
 
 let db
 
 // Dev runs against the Vite server; production loads built files from disk.
 const isDev = !!process.env.ELECTRON_RENDERER_URL
 
-function createWindow() {
-  const win = new BrowserWindow({
-    width: 1366,
-    height: 850,
-    minWidth: 1024,
-    minHeight: 700,
-    backgroundColor: '#0f172a',
-    autoHideMenuBar: true,
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      sandbox: false,
-      contextIsolation: true,
-      nodeIntegration: false,
-      // No DevTools in production — it would let anyone at the terminal open the
-      // console and call IPC directly, bypassing the login screen.
-      devTools: isDev
-    }
-  })
+// Read the raw settings row (key/value map) straight from the db.
+const settingsRow = () => Object.fromEntries(db.prepare('SELECT key, value FROM settings').all().map((r) => [r.key, r.value]))
 
-  // Defence in depth: block the DevTools shortcuts and force it shut if anything
-  // still manages to open it on a shipped build.
-  if (!isDev) {
-    win.webContents.on('before-input-event', (event, input) => {
-      const key = (input.key || '').toLowerCase()
-      const ctrlShift = input.control && input.shift
-      if (key === 'f12' || (ctrlShift && (key === 'i' || key === 'j' || key === 'c'))) {
-        event.preventDefault()
-      }
-    })
-    win.webContents.on('devtools-opened', () => win.webContents.closeDevTools())
-  }
-
-  if (process.env.ELECTRON_RENDERER_URL) {
-    win.loadURL(process.env.ELECTRON_RENDERER_URL)
-  } else {
-    win.loadFile(join(__dirname, '../renderer/index.html'))
-  }
-}
+// Persist the fullscreen choice so the window opens the same way next launch.
+const persistFullscreen = (on) =>
+  db
+    .prepare("INSERT INTO settings (key, value) VALUES ('fullscreen', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+    .run(on ? '1' : '0')
 
 app.whenReady().then(async () => {
   // Remove the default application menu in production (strips the reload / DevTools
@@ -53,7 +24,12 @@ app.whenReady().then(async () => {
   if (!isDev) Menu.setApplicationMenu(null)
   db = await initDatabase()
   registerIpc(db)
-  createWindow()
+
+  createMainWindow({ isDev, fullscreen: parseSettings(settingsRow()).fullscreen, onFullscreenChange: persistFullscreen })
+
+  // Window control from the renderer (Settings → Display toggle). Just flips the
+  // main window and persists; carries no data, so it sits outside the IPC auth gate.
+  ipcMain.handle('window:setFullscreen', (_e, { on }) => setMainFullscreen(!!on))
 })
 
 // Single-window kiosk app: closing the window exits everywhere (including macOS —

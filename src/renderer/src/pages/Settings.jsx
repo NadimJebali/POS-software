@@ -105,6 +105,27 @@ export default function Settings() {
           </Field>
         </Section>
 
+        {/* Display */}
+        <Section title={t('settings.display')}>
+          <Field label={t('settings.fullscreen')}>
+            <div className="grid grid-cols-2 gap-2">
+              {[['0', t('settings.windowed')], ['1', t('settings.fullscreen')]].map(([v, label]) => (
+                <button
+                  key={v}
+                  onClick={() => {
+                    set('fullscreen', v)
+                    api.window.setFullscreen(v === '1') // apply live; also persisted on Save
+                  }}
+                  className={btn(form.fullscreen === v)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p className="text-muted text-sm mt-2">{t('settings.fullscreenHint')}</p>
+          </Field>
+        </Section>
+
         {/* Security */}
         <Section title={t('settings.security')}>
           <Field label={t('settings.autoLock')}>
