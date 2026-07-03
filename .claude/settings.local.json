@@ -6,7 +6,11 @@
     "allow": [
       "PowerShell(python --version)",
       "PowerShell(py -0 2>$null)",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "PowerShell(npm install *)",
+      "PowerShell(Select-String -Path \"src\\\\main\\\\receipt.js\",\"src\\\\main\\\\report.js\",\"src\\\\main\\\\i18n.js\" -Pattern \"^import|require\\\\\\(\" | ForEach-Object { \"$\\($_.Filename\\): $\\($_.Line\\)\" })",
+      "PowerShell(npm test *)",
+      "PowerShell(npx eslint .)"
     ]
   }
 }
