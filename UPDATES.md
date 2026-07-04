@@ -43,8 +43,13 @@ never accidentally ship the dev key.
 
    ```bash
    # builds (electron-vite + electron-builder) then uploads to the droplet's /updates
-   npm run publish:update
+   npm run publish:update -- --notes "What changed, one line"
    ```
+
+   `--notes` is optional; it becomes this version's line on the public download page's
+   version history. The script also maintains `releases.json` there — the manifest that
+   page renders — fetching the current one from the droplet and adding/replacing this
+   version's entry (re-publishing the same version updates it).
 
    Config via env if your host differs (defaults shown):
    `DEPLOY_HOST=pos.nadimjebali.engineer DEPLOY_USER=root UPDATES_DIR=/root/pos-platform/updates SSH_KEY=<path>`
