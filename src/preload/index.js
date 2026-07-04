@@ -42,4 +42,12 @@ for (const channel of CHANNELS) {
   }
 }
 
+// Main→renderer push: subscribe to the "update downloaded" notice. Returns an
+// unsubscribe function. (One-way event, distinct from the invoke channels above.)
+api.onUpdateReady = (cb) => {
+  const listener = (_e, payload) => cb(payload)
+  ipcRenderer.on('update:ready', listener)
+  return () => ipcRenderer.removeListener('update:ready', listener)
+}
+
 contextBridge.exposeInMainWorld('pos', api)

@@ -21,6 +21,9 @@ export const locales = {
       moving: 'Moving…',
       transferLimit: 'This license has reached its transfer limit for the year. Please contact your vendor.'
     },
+    update: {
+      ready: 'Update ready — installs when you quit'
+    },
     login: {
       title: 'Select your account to sign in', pickAccount: 'Pick an account on the left, then enter your PIN.',
       enterPinFor: 'Enter PIN for', signIn: 'Sign in', signingIn: 'Signing in…', administrator: 'Administrator',
@@ -154,6 +157,9 @@ export const locales = {
       moving: 'Déplacement…',
       transferLimit: 'Cette licence a atteint sa limite de transferts pour l’année. Veuillez contacter votre fournisseur.'
     },
+    update: {
+      ready: 'Mise à jour prête — s’installe à la fermeture'
+    },
     login: {
       title: 'Sélectionnez votre compte pour vous connecter', pickAccount: 'Choisissez un compte à gauche, puis saisissez votre code PIN.',
       enterPinFor: 'Code PIN pour', signIn: 'Se connecter', signingIn: 'Connexion…', administrator: 'Administrateur',
@@ -286,6 +292,9 @@ export const locales = {
       moveConfirm: 'انقله إلى هنا',
       moving: 'جارٍ النقل…',
       transferLimit: 'بلغ هذا الترخيص حدّ عمليات النقل لهذا العام. يرجى التواصل مع المورّد.'
+    },
+    update: {
+      ready: 'تحديث جاهز — يُثبّت عند الإغلاق'
     },
     login: {
       title: 'اختر حسابك لتسجيل الدخول', pickAccount: 'اختر حسابًا من اليمين ثم أدخل الرمز السري.',

@@ -1,7 +1,9 @@
 import { app, Menu, ipcMain } from 'electron'
+import { autoUpdater } from 'electron-updater'
 import { initDatabase } from './db'
 import { registerIpc } from './ipc'
-import { createMainWindow, setMainFullscreen, syncCustomerDisplay, initDisplayWatch, listDisplays, pushCustomerState } from './windows'
+import { createMainWindow, getMainWindow, setMainFullscreen, syncCustomerDisplay, initDisplayWatch, listDisplays, pushCustomerState } from './windows'
+import { initAutoUpdate } from './updater'
 import { parseSettings } from '../shared/settings'
 
 let db
@@ -52,6 +54,19 @@ app.whenReady().then(async () => {
 
   // The cashier pushes presentation snapshots; relay them to the customer window.
   ipcMain.handle('customer:present', (_e, { snapshot }) => pushCustomerState(snapshot))
+
+  // Background auto-update (packaged builds only — dev has no update feed). Fire-and-
+  // forget: it never blocks startup, and a failure is silent. When a build finishes
+  // downloading we nudge the renderer to show a small "installs when you quit" notice;
+  // the install itself happens on quit (autoInstallOnAppQuit), never a forced restart.
+  if (!isDev) {
+    initAutoUpdate(autoUpdater, {
+      onReady: (info) => {
+        const win = getMainWindow()
+        if (win && !win.isDestroyed()) win.webContents.send('update:ready', { version: info?.version || null })
+      }
+    })
+  }
 })
 
 // Single-window kiosk app: closing the window exits everywhere (including macOS —

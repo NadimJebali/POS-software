@@ -57,6 +57,11 @@ export default function Layout() {
   const bannerDate = (ms) =>
     new Date(ms).toLocaleDateString(lang, { day: '2-digit', month: 'short', year: 'numeric' })
 
+  // "Update downloaded" notice — appears only after a completed background download;
+  // the install happens on quit. Dismissible so it never nags mid-shift.
+  const [updateReady, setUpdateReady] = useState(false)
+  useEffect(() => api.updates.onReady(() => setUpdateReady(true)), [])
+
   // Low-stock indicator for the Menu nav item (admins only).
   useEffect(() => {
     if (!isAdmin) return
@@ -141,6 +146,17 @@ export default function Layout() {
         {banner.kind === 'grace' && (
           <div className="shrink-0 bg-berry/15 border-b border-berry/30 text-berry text-sm font-semibold px-5 py-2 text-center">
             {t('license.graceRenew')}
+          </div>
+        )}
+        {updateReady && (
+          <div className="shrink-0 bg-mint/15 border-b border-mint/30 text-mint text-sm font-semibold px-5 py-2 flex items-center justify-center gap-3">
+            <span>{t('update.ready')}</span>
+            <button
+              className="text-mint/80 hover:text-mint underline underline-offset-2"
+              onClick={() => setUpdateReady(false)}
+            >
+              {t('common.close')}
+            </button>
           </div>
         )}
         <div className="flex-1 overflow-hidden">

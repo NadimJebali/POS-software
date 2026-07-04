@@ -12,6 +12,7 @@
     "icon": "node scripts/make-icon.mjs",
     "license:exe": "node tools/build-license-exe.mjs",
     "dist": "electron-vite build && electron-builder",
+    "publish:update": "node scripts/publish-update.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
@@ -20,6 +21,7 @@
   "dependencies": {
     "@fontsource-variable/bricolage-grotesque": "^5.2.10",
     "@fontsource-variable/hanken-grotesk": "^5.2.8",
+    "electron-updater": "^6.8.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0",
@@ -52,6 +54,13 @@
     },
     "files": [
       "out/**/*"
+    ],
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://pos.nadimjebali.engineer/updates",
+        "channel": "latest"
+      }
     ],
     "asarUnpack": [
       "**/node_modules/sql.js/dist/*.wasm"

@@ -9,6 +9,10 @@ export const api = {
     rebindByCode: (code) => call('license:rebindByCode', { code }),
     renew: () => call('license:renew')
   },
+  updates: {
+    // Subscribe to the "update downloaded" notice; returns an unsubscribe fn.
+    onReady: (cb) => window.pos.onUpdateReady(cb)
+  },
   auth: {
     needsSetup: () => call('auth:needsSetup'),
     setup: (data) => call('auth:setup', data),
