@@ -14,7 +14,12 @@ export const locales = {
     },
     license: {
       offlineWarn: "Can't reach the license server — works until {date}",
-      graceRenew: 'Subscription expired — please renew'
+      graceRenew: 'Subscription expired — please renew',
+      moveTitle: 'This license is used on another machine',
+      movePrompt: 'Move it to this machine? The other machine will be signed out.',
+      moveConfirm: 'Move it here',
+      moving: 'Moving…',
+      transferLimit: 'This license has reached its transfer limit for the year. Please contact your vendor.'
     },
     login: {
       title: 'Select your account to sign in', pickAccount: 'Pick an account on the left, then enter your PIN.',
@@ -142,7 +147,12 @@ export const locales = {
     },
     license: {
       offlineWarn: 'Serveur de licence injoignable — fonctionne jusqu’au {date}',
-      graceRenew: 'Abonnement expiré — veuillez renouveler'
+      graceRenew: 'Abonnement expiré — veuillez renouveler',
+      moveTitle: 'Cette licence est utilisée sur une autre machine',
+      movePrompt: 'La déplacer vers cette machine ? L’autre machine sera déconnectée.',
+      moveConfirm: 'Déplacer ici',
+      moving: 'Déplacement…',
+      transferLimit: 'Cette licence a atteint sa limite de transferts pour l’année. Veuillez contacter votre fournisseur.'
     },
     login: {
       title: 'Sélectionnez votre compte pour vous connecter', pickAccount: 'Choisissez un compte à gauche, puis saisissez votre code PIN.',
@@ -270,7 +280,12 @@ export const locales = {
     },
     license: {
       offlineWarn: 'تعذّر الوصول إلى خادم الترخيص — يعمل حتى {date}',
-      graceRenew: 'انتهى الاشتراك — يرجى التجديد'
+      graceRenew: 'انتهى الاشتراك — يرجى التجديد',
+      moveTitle: 'هذا الترخيص مُستخدَم على جهاز آخر',
+      movePrompt: 'هل تريد نقله إلى هذا الجهاز؟ سيتم تسجيل خروج الجهاز الآخر.',
+      moveConfirm: 'انقله إلى هنا',
+      moving: 'جارٍ النقل…',
+      transferLimit: 'بلغ هذا الترخيص حدّ عمليات النقل لهذا العام. يرجى التواصل مع المورّد.'
     },
     login: {
       title: 'اختر حسابك لتسجيل الدخول', pickAccount: 'اختر حسابًا من اليمين ثم أدخل الرمز السري.',

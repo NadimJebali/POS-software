@@ -5,6 +5,7 @@ import {
   getStatus as licenseStatus,
   activate as licenseActivate,
   activateByCode as licenseActivateByCode,
+  rebindByCode as licenseRebindByCode,
   renewLicense
 } from './license'
 import { exportDatabase, importDatabase } from './backup'
@@ -16,7 +17,7 @@ import { createAnalytics } from './analytics'
 // Channels callable without being signed in (licensing + the login flow itself).
 // Everything else requires an authenticated session — enforced in the dispatcher.
 const PUBLIC_CHANNELS = new Set([
-  'license:status', 'license:activate', 'license:activateByCode', 'license:renew',
+  'license:status', 'license:activate', 'license:activateByCode', 'license:rebindByCode', 'license:renew',
   'auth:needsSetup', 'auth:setup', 'auth:login', 'auth:logout', 'auth:current', 'auth:users',
   // The login/setup/activate screens render before sign-in and need shop name,
   // currency and logo. Settings hold no secrets; writing them stays admin-only.
@@ -109,7 +110,24 @@ export function registerIpc(db) {
     // ---------------- Licensing ----------------
     'license:status': () => licenseStatus(),
     'license:activate': ({ license }) => licenseActivate(license),
-    'license:activateByCode': ({ code }) => licenseActivateByCode(code),
+    // These return a discriminated result rather than throwing: the renderer must
+    // branch on the failure `code` (e.g. 'machine_limit' -> offer to move the license,
+    // 'transfer_limit' -> contact the vendor), and Electron's IPC error channel drops
+    // custom error properties. On success `status` is the fresh licensed status.
+    'license:activateByCode': async ({ code }) => {
+      try {
+        return { ok: true, status: await licenseActivateByCode(code) }
+      } catch (e) {
+        return { ok: false, code: e.code || 'error', message: e.message }
+      }
+    },
+    'license:rebindByCode': async ({ code }) => {
+      try {
+        return { ok: true, status: await licenseRebindByCode(code) }
+      } catch (e) {
+        return { ok: false, code: e.code || 'error', message: e.message }
+      }
+    },
     // Silent background renewal; never throws. Returns the (possibly refreshed) status
     // so the renderer can update its banners without a second round-trip.
     'license:renew': async () => {

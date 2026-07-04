@@ -6,6 +6,7 @@ export const api = {
     status: () => call('license:status'),
     activate: (license) => call('license:activate', { license }),
     activateByCode: (code) => call('license:activateByCode', { code }),
+    rebindByCode: (code) => call('license:rebindByCode', { code }),
     renew: () => call('license:renew')
   },
   auth: {

@@ -35,13 +35,23 @@ export function LicenseProvider({ children }) {
     return s
   }, [])
 
+  // Both return a discriminated result { ok, status?, code?, message? }; on success we
+  // adopt the fresh status, on failure the caller branches on `code`.
   const activateByCode = useCallback(async (code) => {
-    const s = await api.license.activateByCode(code)
-    setStatus(s)
-    return s
+    const res = await api.license.activateByCode(code)
+    if (res.ok) setStatus(res.status)
+    return res
   }, [])
 
-  return <Ctx.Provider value={{ status, refresh, activate, activateByCode }}>{children}</Ctx.Provider>
+  const rebindByCode = useCallback(async (code) => {
+    const res = await api.license.rebindByCode(code)
+    if (res.ok) setStatus(res.status)
+    return res
+  }, [])
+
+  return (
+    <Ctx.Provider value={{ status, refresh, activate, activateByCode, rebindByCode }}>{children}</Ctx.Provider>
+  )
 }
 
 export function useLicense() {

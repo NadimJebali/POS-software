@@ -2,7 +2,7 @@
 // activation code for a signed license key via the server's POST /activate.
 // `fetch` and the base URL are injected so these tests make no real network calls.
 import { describe, test, expect, vi } from 'vitest'
-import { requestActivation, requestRenewal } from '../src/main/license-client'
+import { requestActivation, requestRenewal, requestRebind } from '../src/main/license-client'
 
 // Builds a stub fetch that returns one canned Response and records the last request.
 function stubFetch(response) {
@@ -189,5 +189,71 @@ describe('requestRenewal', () => {
     )
 
     expect(err.code).toBe('network')
+  })
+})
+
+describe('requestRebind', () => {
+  test('posts the code + machine id to /rebind and returns the moved license key', async () => {
+    const { fetch, calls } = stubFetch(jsonResponse(200, { license_key: 'MOVED.KEY', exp: 42 }))
+
+    const key = await requestRebind('POSK-ABCD', 'MID-NEW', {
+      fetch,
+      baseUrl: 'https://example.test',
+      appVersion: '0.2.0'
+    })
+
+    expect(key).toBe('MOVED.KEY')
+    expect(calls[0].url).toBe('https://example.test/rebind')
+    expect(calls[0].init.method).toBe('POST')
+    const sent = JSON.parse(calls[0].init.body)
+    expect(sent).toMatchObject({ code: 'POSK-ABCD', machineId: 'MID-NEW', appVersion: '0.2.0' })
+  })
+
+  test('the yearly transfer limit (HTTP 429 domain error) surfaces as transfer_limit, not rate_limited', async () => {
+    const { fetch } = stubFetch(
+      jsonResponse(429, {
+        error: 'transfer_limit',
+        message: 'This license has reached its transfer limit for the year — please contact the vendor'
+      })
+    )
+
+    const err = await requestRebind('POSK', 'MID-NEW', { fetch, baseUrl: 'https://example.test' }).then(
+      () => null,
+      (e) => e
+    )
+
+    expect(err.code).toBe('transfer_limit')
+    expect(err.message).toMatch(/transfer limit|contact the vendor/i)
+  })
+
+  test('a genuine rate-limit 429 (no domain code) still maps to rate_limited', async () => {
+    const { fetch } = stubFetch(
+      jsonResponse(429, { statusCode: 429, error: 'Too Many Requests', message: 'Rate limit exceeded' })
+    )
+
+    const err = await requestRebind('POSK', 'MID', { fetch, baseUrl: 'https://example.test' }).then(
+      () => null,
+      (e) => e
+    )
+
+    expect(err.code).toBe('rate_limited')
+  })
+
+  test('an unknown code and a network failure keep their codes', async () => {
+    const bad = stubFetch(jsonResponse(404, { error: 'invalid_code', message: 'That activation code is not valid' }))
+    const notValid = await requestRebind('X', 'MID', { fetch: bad.fetch, baseUrl: 'https://example.test' }).then(
+      () => null,
+      (e) => e
+    )
+    expect(notValid.code).toBe('invalid_code')
+
+    const offline = vi.fn(async () => {
+      throw new TypeError('fetch failed')
+    })
+    const netErr = await requestRebind('X', 'MID', { fetch: offline, baseUrl: 'https://example.test' }).then(
+      () => null,
+      (e) => e
+    )
+    expect(netErr.code).toBe('network')
   })
 })

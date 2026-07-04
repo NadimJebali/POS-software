@@ -45,26 +45,41 @@ async function postJson(url, payload, deps) {
     throw new ActivationError('server_error', 'The licensing server is temporarily unavailable. Please try again.')
   }
 
-  if (res.status === 429) {
-    // The rate limiter's body isn't a domain error — give our own friendly message.
-    throw new ActivationError('rate_limited', 'Too many attempts. Please wait a moment and try again.')
-  }
   if (!res.ok) {
+    // A 429 from the rate limiter carries error:'Too Many Requests'; a 429 *domain*
+    // refusal (e.g. the yearly transfer_limit) carries its own code — prefer that.
+    if (res.status === 429 && (!body.error || body.error === 'Too Many Requests')) {
+      throw new ActivationError('rate_limited', 'Too many attempts. Please wait a moment and try again.')
+    }
     throw new ActivationError(body.error || 'server_error', body.message || 'Request failed')
   }
   return body
 }
 
-// Exchanges a typeable activation code for a signed license key. `deps` =
-// { fetch, baseUrl, appVersion } — all optional. Throws ActivationError on failure.
-export async function requestActivation(code, machineId, deps = {}) {
+// Shared by activation and rebind: both POST { code, machineId, appVersion } to their
+// endpoint and return a signed license_key. `path` is '/activate' or '/rebind'.
+async function requestKey(path, code, machineId, deps) {
   const baseUrl = deps.baseUrl ?? DEFAULT_BASE_URL
-  const body = await postJson(`${baseUrl}/activate`, { code, machineId, appVersion: deps.appVersion }, deps)
+  const body = await postJson(`${baseUrl}${path}`, { code, machineId, appVersion: deps.appVersion }, deps)
 
   if (!body.license_key || typeof body.license_key !== 'string') {
     throw new ActivationError('server_error', 'The server returned an unexpected response. Please try again.')
   }
   return body.license_key
+}
+
+// Exchanges a typeable activation code for a signed license key. `deps` =
+// { fetch, baseUrl, appVersion } — all optional. Throws ActivationError on failure
+// (e.g. 'machine_limit' when the code is already bound elsewhere → offer a rebind).
+export async function requestActivation(code, machineId, deps = {}) {
+  return requestKey('/activate', code, machineId, deps)
+}
+
+// Self-service transfer: move the license onto THIS machine. Same shape as activation
+// but hits /rebind. Throws 'transfer_limit' when the yearly limit is spent (the app
+// then shows the contact-vendor message), or the usual invalid_code / network / etc.
+export async function requestRebind(code, machineId, deps = {}) {
+  return requestKey('/rebind', code, machineId, deps)
 }
 
 // POSTs the CURRENT signed key to /renew and returns { license_key, exp, graceUntil }

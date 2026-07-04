@@ -4,7 +4,7 @@ import { execSync } from 'child_process'
 import { app } from 'electron'
 import { join } from 'path'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
-import { requestActivation, requestRenewal } from './license-client'
+import { requestActivation, requestRenewal, requestRebind } from './license-client'
 
 // Public half of the offline signing key. The private key (license-private.pem)
 // stays with the vendor and is used by scripts/license-gen.mjs to issue licenses.
@@ -235,6 +235,18 @@ export async function activateByCode(code) {
   })
   // Reuse the offline path: signature check, machine binding, monotonic-clock expiry,
   // and local persistence all happen here.
+  return activate(licenseString)
+}
+
+// Self-service machine transfer: when activateByCode reported 'machine_limit' and the
+// user confirmed "move it here", ask the server to rebind the license onto this
+// machine, then verify the returned key OFFLINE and persist it (same trust model as
+// activation). Throws with '.code' ('transfer_limit', 'suspended', …) for the UI.
+export async function rebindByCode(code) {
+  const machineId = getMachineId()
+  const licenseString = await requestRebind(String(code ?? '').trim(), machineId, {
+    appVersion: app.getVersion()
+  })
   return activate(licenseString)
 }
 
