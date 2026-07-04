@@ -21,6 +21,21 @@ status, and the update check never touches the license endpoints.
   dismissible "Update ready — installs when you quit" strip (en/fr/ar). The notice only
   appears after the download finishes and never blocks a screen.
 
+## Production signing key (do this once)
+
+Release builds embed the **production** license public key automatically — no source
+edit. The build reads it from either:
+
+- the `LICENSE_PUBLIC_KEY` env var (the value printed by `npm run keygen` on the
+  droplet; literal or `\n`-escaped PEM — this is a **public** key, safe to keep as a
+  GitHub *variable*), or
+- a `license-public.pem` file dropped in the project root (gitignored).
+
+`electron.vite.config.js` bakes it into the main bundle; when neither is set (local dev,
+tests) the app falls back to a throwaway dev key. `npm run publish:update` **refuses to
+build** without the production key unless you pass `--allow-dev-key`, so a release can
+never accidentally ship the dev key.
+
 ## Publishing a new version
 
 1. Bump `version` in `package.json` (electron-updater compares semver).

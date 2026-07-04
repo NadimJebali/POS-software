@@ -27,6 +27,25 @@ import { join } from 'node:path'
 const args = new Set(process.argv.slice(2))
 const skipBuild = args.has('--skip-build')
 const dryRun = args.has('--dry-run')
+const allowDevKey = args.has('--allow-dev-key')
+
+// Refuse to publish a build that would embed the DEV license key (electron.vite.config
+// injects LICENSE_PUBLIC_KEY / license-public.pem at build time). Guards against
+// shipping a release real production licenses can't activate. Override with
+// --allow-dev-key for a throwaway/internal build.
+function hasProductionKey() {
+  const env = process.env.LICENSE_PUBLIC_KEY
+  if (env && env.includes('BEGIN PUBLIC KEY')) return true
+  return existsSync('license-public.pem')
+}
+if (!skipBuild && !allowDevKey && !hasProductionKey()) {
+  console.error(
+    '\n✖ No production license public key found. Set LICENSE_PUBLIC_KEY (the key printed' +
+      '\n  by keygen on the droplet) or drop license-public.pem in the project root, so the' +
+      '\n  build embeds it. Re-run, or pass --allow-dev-key for an internal build.'
+  )
+  process.exit(1)
+}
 
 const HOST = process.env.DEPLOY_HOST || 'pos.nadimjebali.engineer'
 const USER = process.env.DEPLOY_USER || 'root'

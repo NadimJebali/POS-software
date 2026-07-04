@@ -6,11 +6,20 @@ import { join } from 'path'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { requestActivation, requestRenewal, requestRebind } from './license-client'
 
-// Public half of the offline signing key. The private key (license-private.pem)
-// stays with the vendor and is used by scripts/license-gen.mjs to issue licenses.
-const PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
+/* global __LICENSE_PUBLIC_KEY__ */
+// Public half of the offline signing key. The private key stays with the vendor.
+//
+// Production builds inject the real key at build time (electron-vite `define`, fed by
+// the LICENSE_PUBLIC_KEY env var or a license-public.pem — see electron.vite.config.js),
+// so releases never ship this dev key. When the placeholder isn't replaced (local dev,
+// tests, running under plain node), we fall back to the dev key below. `typeof` guards
+// the undeclared identifier so it can't throw.
+const DEV_PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
 MCowBQYDK2VwAyEAMyaX0qTD4ii0CHKaWj55jR2lPQFChsPPscvOvk18lY8=
 -----END PUBLIC KEY-----`
+
+const PUBLIC_KEY =
+  (typeof __LICENSE_PUBLIC_KEY__ !== 'undefined' && __LICENSE_PUBLIC_KEY__) || DEV_PUBLIC_KEY
 
 const TRIAL_DAYS = 14
 
