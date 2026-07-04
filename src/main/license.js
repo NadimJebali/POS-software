@@ -4,6 +4,7 @@ import { execSync } from 'child_process'
 import { app } from 'electron'
 import { join } from 'path'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { requestActivation } from './license-client'
 
 // Public half of the offline signing key. The private key (license-private.pem)
 // stays with the vendor and is used by scripts/license-gen.mjs to issue licenses.
@@ -212,4 +213,18 @@ export function activate(licenseString) {
   if (!res.valid) throw new Error(res.reason)
   writeFileSync(paths().lic, String(licenseString).trim())
   return { state: 'licensed', machineId, name: res.payload.name || null, exp: res.payload.exp || null }
+}
+
+// Online activation by typeable code: ask the license server to bind this machine and
+// hand back a signed key, then verify that key OFFLINE (activate) before trusting it —
+// the server is never blindly trusted. Any server/network failure throws an Error
+// carrying a machine-readable `.code` (e.g. 'machine_limit') so the UI can react.
+export async function activateByCode(code) {
+  const machineId = getMachineId()
+  const licenseString = await requestActivation(String(code ?? '').trim(), machineId, {
+    appVersion: app.getVersion()
+  })
+  // Reuse the offline path: signature check, machine binding, monotonic-clock expiry,
+  // and local persistence all happen here.
+  return activate(licenseString)
 }

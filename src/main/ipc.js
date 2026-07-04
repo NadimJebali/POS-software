@@ -1,7 +1,7 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { printReceipt } from './receipt'
 import { hashPin, verifyPin, needsRehash } from './auth-util'
-import { getStatus as licenseStatus, activate as licenseActivate } from './license'
+import { getStatus as licenseStatus, activate as licenseActivate, activateByCode as licenseActivateByCode } from './license'
 import { exportDatabase, importDatabase } from './backup'
 import { exportAnalyticsPdf } from './report'
 import { mt } from './i18n'
@@ -11,7 +11,7 @@ import { createAnalytics } from './analytics'
 // Channels callable without being signed in (licensing + the login flow itself).
 // Everything else requires an authenticated session — enforced in the dispatcher.
 const PUBLIC_CHANNELS = new Set([
-  'license:status', 'license:activate',
+  'license:status', 'license:activate', 'license:activateByCode',
   'auth:needsSetup', 'auth:setup', 'auth:login', 'auth:logout', 'auth:current', 'auth:users',
   // The login/setup/activate screens render before sign-in and need shop name,
   // currency and logo. Settings hold no secrets; writing them stays admin-only.
@@ -104,6 +104,7 @@ export function registerIpc(db) {
     // ---------------- Licensing ----------------
     'license:status': () => licenseStatus(),
     'license:activate': ({ license }) => licenseActivate(license),
+    'license:activateByCode': ({ code }) => licenseActivateByCode(code),
 
     // ---------------- Backup / restore (activated license only) ----------------
     'db:export': () => {

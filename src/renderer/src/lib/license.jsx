@@ -17,7 +17,13 @@ export function LicenseProvider({ children }) {
     return s
   }, [])
 
-  return <Ctx.Provider value={{ status, refresh, activate }}>{children}</Ctx.Provider>
+  const activateByCode = useCallback(async (code) => {
+    const s = await api.license.activateByCode(code)
+    setStatus(s)
+    return s
+  }, [])
+
+  return <Ctx.Provider value={{ status, refresh, activate, activateByCode }}>{children}</Ctx.Provider>
 }
 
 export function useLicense() {
