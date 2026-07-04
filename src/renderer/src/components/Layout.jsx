@@ -6,6 +6,7 @@ import { useAuth } from '../lib/auth'
 import { useLicense } from '../lib/license'
 import { useT } from '../lib/i18n'
 import { api } from '../lib/api'
+import { deriveBanner } from '../../../shared/license-banner'
 import { IconFloor, IconProducts, IconTables, IconHistory, IconChart, IconSettings, IconUsers, IconLogout } from './icons'
 
 const links = [
@@ -40,8 +41,21 @@ export default function Layout() {
   const { settings } = useSettings()
   const { user, isAdmin, logout } = useAuth()
   const { status: license } = useLicense()
-  const { t } = useT()
+  const { t, lang } = useT()
   const [lowCount, setLowCount] = useState(0)
+
+  // Renewal banners are derived purely from the signed payload the status carries.
+  // Recompute off the render path (on status change and once a minute) so a warning
+  // that crosses its threshold mid-shift appears without a reload.
+  const [banner, setBanner] = useState({ kind: 'none' })
+  useEffect(() => {
+    const compute = () => setBanner(deriveBanner(license, Date.now()))
+    compute()
+    const id = setInterval(compute, 60000)
+    return () => clearInterval(id)
+  }, [license])
+  const bannerDate = (ms) =>
+    new Date(ms).toLocaleDateString(lang, { day: '2-digit', month: 'short', year: 'numeric' })
 
   // Low-stock indicator for the Menu nav item (admins only).
   useEffect(() => {
@@ -117,6 +131,16 @@ export default function Layout() {
         {license?.state === 'trial' && (
           <div className="shrink-0 bg-ember/15 border-b border-ember/30 text-ember text-sm font-semibold px-5 py-2 text-center">
             {t('nav.trialLeft', { n: license.daysLeft })}{isAdmin ? ` · ${t('nav.activateHint')}` : ''}
+          </div>
+        )}
+        {banner.kind === 'warning' && (
+          <div className="shrink-0 bg-ember/15 border-b border-ember/30 text-ember text-sm font-semibold px-5 py-2 text-center">
+            {t('license.offlineWarn', { date: bannerDate(banner.until) })}
+          </div>
+        )}
+        {banner.kind === 'grace' && (
+          <div className="shrink-0 bg-berry/15 border-b border-berry/30 text-berry text-sm font-semibold px-5 py-2 text-center">
+            {t('license.graceRenew')}
           </div>
         )}
         <div className="flex-1 overflow-hidden">

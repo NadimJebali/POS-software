@@ -12,6 +12,10 @@ export const locales = {
       floor: 'Floor', menu: 'Menu', tables: 'Tables', history: 'History', analytics: 'Analytics',
       setup: 'Setup', users: 'Users', trialLeft: 'Trial — {n} day(s) left', activateHint: 'activate in Setup → License'
     },
+    license: {
+      offlineWarn: "Can't reach the license server — works until {date}",
+      graceRenew: 'Subscription expired — please renew'
+    },
     login: {
       title: 'Select your account to sign in', pickAccount: 'Pick an account on the left, then enter your PIN.',
       enterPinFor: 'Enter PIN for', signIn: 'Sign in', signingIn: 'Signing in…', administrator: 'Administrator',
@@ -136,6 +140,10 @@ export const locales = {
       floor: 'Salle', menu: 'Menu', tables: 'Tables', history: 'Historique', analytics: 'Statistiques',
       setup: 'Réglages', users: 'Utilisateurs', trialLeft: 'Essai — {n} jour(s) restant(s)', activateHint: 'activez dans Réglages → Licence'
     },
+    license: {
+      offlineWarn: 'Serveur de licence injoignable — fonctionne jusqu’au {date}',
+      graceRenew: 'Abonnement expiré — veuillez renouveler'
+    },
     login: {
       title: 'Sélectionnez votre compte pour vous connecter', pickAccount: 'Choisissez un compte à gauche, puis saisissez votre code PIN.',
       enterPinFor: 'Code PIN pour', signIn: 'Se connecter', signingIn: 'Connexion…', administrator: 'Administrateur',
@@ -259,6 +267,10 @@ export const locales = {
     nav: {
       floor: 'القاعة', menu: 'القائمة', tables: 'الطاولات', history: 'السجل', analytics: 'الإحصائيات',
       setup: 'الإعدادات', users: 'المستخدمون', trialLeft: 'تجربة — تبقّى {n} يوم', activateHint: 'فعّل من الإعدادات ← الترخيص'
+    },
+    license: {
+      offlineWarn: 'تعذّر الوصول إلى خادم الترخيص — يعمل حتى {date}',
+      graceRenew: 'انتهى الاشتراك — يرجى التجديد'
     },
     login: {
       title: 'اختر حسابك لتسجيل الدخول', pickAccount: 'اختر حسابًا من اليمين ثم أدخل الرمز السري.',

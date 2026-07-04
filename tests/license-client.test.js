@@ -2,7 +2,7 @@
 // activation code for a signed license key via the server's POST /activate.
 // `fetch` and the base URL are injected so these tests make no real network calls.
 import { describe, test, expect, vi } from 'vitest'
-import { requestActivation } from '../src/main/license-client'
+import { requestActivation, requestRenewal } from '../src/main/license-client'
 
 // Builds a stub fetch that returns one canned Response and records the last request.
 function stubFetch(response) {
@@ -139,5 +139,55 @@ describe('requestActivation', () => {
     expect(err).toBeInstanceOf(Error)
     expect(err.code).toBe('server_error')
     expect(err.message).toMatch(/server|try again|unavailable/i)
+  })
+})
+
+describe('requestRenewal', () => {
+  test('posts the current key and machine id, and returns the refreshed key + fields', async () => {
+    const { fetch, calls } = stubFetch(
+      jsonResponse(200, { license_key: 'NEW.KEY', exp: 999, graceUntil: null })
+    )
+
+    const res = await requestRenewal('OLD.KEY', 'MID-1234', {
+      fetch,
+      baseUrl: 'https://example.test',
+      appVersion: '0.2.0'
+    })
+
+    expect(res).toEqual({ license_key: 'NEW.KEY', exp: 999, graceUntil: null })
+    expect(calls[0].url).toBe('https://example.test/renew')
+    expect(calls[0].init.method).toBe('POST')
+    const sent = JSON.parse(calls[0].init.body)
+    expect(sent).toMatchObject({ license_key: 'OLD.KEY', machineId: 'MID-1234', appVersion: '0.2.0' })
+  })
+
+  test.each([
+    ['revoked', 403, 'This license has been revoked'],
+    ['lapsed', 403, 'This subscription has lapsed — please renew'],
+    ['suspended', 403, 'This license is suspended — please contact the vendor'],
+    ['invalid_key', 401, 'The license could not be verified']
+  ])('a %s refusal throws with the server code preserved', async (code, http, message) => {
+    const { fetch } = stubFetch(jsonResponse(http, { error: code, message }))
+
+    const err = await requestRenewal('OLD.KEY', 'MID-1', { fetch, baseUrl: 'https://example.test' }).then(
+      () => null,
+      (e) => e
+    )
+
+    expect(err.code).toBe(code)
+    expect(err.message).toBe(message)
+  })
+
+  test('an unreachable server throws a network error (so the caller can stay silent)', async () => {
+    const fetch = vi.fn(async () => {
+      throw new TypeError('fetch failed')
+    })
+
+    const err = await requestRenewal('OLD.KEY', 'MID-1', { fetch, baseUrl: 'https://example.test' }).then(
+      () => null,
+      (e) => e
+    )
+
+    expect(err.code).toBe('network')
   })
 })

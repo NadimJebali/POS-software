@@ -5,7 +5,8 @@ export const api = {
   license: {
     status: () => call('license:status'),
     activate: (license) => call('license:activate', { license }),
-    activateByCode: (code) => call('license:activateByCode', { code })
+    activateByCode: (code) => call('license:activateByCode', { code }),
+    renew: () => call('license:renew')
   },
   auth: {
     needsSetup: () => call('auth:needsSetup'),

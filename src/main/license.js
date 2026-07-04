@@ -4,7 +4,7 @@ import { execSync } from 'child_process'
 import { app } from 'electron'
 import { join } from 'path'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
-import { requestActivation } from './license-client'
+import { requestActivation, requestRenewal } from './license-client'
 
 // Public half of the offline signing key. The private key (license-private.pem)
 // stays with the vendor and is used by scripts/license-gen.mjs to issue licenses.
@@ -186,7 +186,16 @@ export function getStatus() {
     // revived by rolling the system time back.
     const res = verify(readFileSync(lic, 'utf8'), machineId, clock.effectiveNow)
     if (res.valid) {
-      return { state: 'licensed', machineId, name: res.payload.name || null, exp: res.payload.exp || null }
+      return {
+        state: 'licensed',
+        machineId,
+        name: res.payload.name || null,
+        exp: res.payload.exp || null,
+        // Surfaced for the renewal banners (deriveBanner). Both come straight from the
+        // signed payload, so no renewal thresholds are hardcoded in the client.
+        graceUntil: res.payload.graceUntil ?? null,
+        warnDays: res.payload.warnDays ?? null
+      }
     }
     // stored license no longer valid (expired / wrong machine) → treat as needing activation
     return { state: 'expired', machineId, reason: res.reason }
@@ -227,4 +236,38 @@ export async function activateByCode(code) {
   // Reuse the offline path: signature check, machine binding, monotonic-clock expiry,
   // and local persistence all happen here.
   return activate(licenseString)
+}
+
+// Silent background renewal: present the current key to the server, and if it hands
+// back a fresh one, verify it OFFLINE and replace the stored key. Any failure —
+// unreachable server OR a server refusal (revoked / lapsed / suspended) — is
+// swallowed: the current key is left untouched so the POS keeps working offline until
+// its exp, at which point getStatus() degrades to 'expired' on its own. This never
+// throws, so it can be fired on startup / on a timer without guarding the caller.
+//
+// The I/O boundaries are injectable (deps.readKey / deps.persist / deps.machineId /
+// deps.fetch) purely for testing; in production they default to the real ones.
+export async function renewLicense(deps = {}) {
+  const machineId = deps.machineId ?? getMachineId()
+  const readKey = deps.readKey ?? (() => (existsSync(paths().lic) ? readFileSync(paths().lic, 'utf8') : null))
+  const persist = deps.persist ?? ((key) => activate(key))
+
+  const current = readKey()
+  if (!current) return { renewed: false, reason: 'no_license' }
+
+  let result
+  try {
+    result = await requestRenewal(current, machineId, { appVersion: app.getVersion(), ...deps })
+  } catch (err) {
+    return { renewed: false, reason: err.code || 'error' }
+  }
+
+  try {
+    // Verifies the machine-bound signature before it can clobber the working license.
+    persist(result.license_key)
+  } catch {
+    return { renewed: false, reason: 'verify_failed' }
+  }
+
+  return { renewed: true, exp: result.exp, graceUntil: result.graceUntil ?? null }
 }
