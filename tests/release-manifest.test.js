@@ -1,7 +1,7 @@
 // The release manifest (releases.json) the publish script maintains on the update
 // feed: one entry per published version, consumed by the platform's download page.
 import { describe, test, expect } from 'vitest'
-import { upsertRelease } from '../scripts/release-manifest.mjs'
+import { upsertRelease, parseLatestYml } from '../scripts/release-manifest.mjs'
 
 describe('upsertRelease', () => {
   test('appends a new version without touching existing entries', () => {
@@ -28,5 +28,19 @@ describe('upsertRelease', () => {
   test('tolerates a corrupt existing manifest (non-array) by starting fresh', () => {
     const out = upsertRelease('garbage', { version: '0.1.0', date: '2026-01-01', file: 'a.exe', size: 1 })
     expect(out).toEqual([{ version: '0.1.0', date: '2026-01-01', file: 'a.exe', size: 1 }])
+  })
+})
+
+describe('parseLatestYml', () => {
+  test('reads the version and the top-level installer path, not the indented files url', () => {
+    const yml = `version: 0.2.2
+files:
+  - url: POS-Software-0.2.1-setup.exe
+    sha512: STALE==
+    size: 111
+path: POS-Software-0.2.2-setup.exe
+sha512: REAL==
+releaseDate: '2026-07-04T23:40:42.271Z'`
+    expect(parseLatestYml(yml)).toEqual({ version: '0.2.2', file: 'POS-Software-0.2.2-setup.exe' })
   })
 })

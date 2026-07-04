@@ -25,9 +25,9 @@
  * and the next poll serves the older version to fresh installs.
  */
 import { spawnSync } from 'node:child_process'
-import { readdirSync, existsSync, readFileSync, writeFileSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { upsertRelease } from './release-manifest.mjs'
+import { upsertRelease, parseLatestYml } from './release-manifest.mjs'
 
 const args = new Set(process.argv.slice(2))
 const skipBuild = args.has('--skip-build')
@@ -88,28 +88,36 @@ if (!existsSync(RELEASE_DIR)) {
   process.exit(1)
 }
 
-// 2) Collect the feed artifacts: the metadata (latest.yml), the installer(s), and the
-//    blockmap that enables differential downloads. Anything else in release/ is ignored.
-const wanted = readdirSync(RELEASE_DIR).filter(
-  (f) => f === 'latest.yml' || f.endsWith('.exe') || f.endsWith('.blockmap')
-)
-
-if (!wanted.includes('latest.yml')) {
+// 2) Identify THIS build's artifacts from latest.yml (electron-builder's authoritative
+//    record), NOT by scanning release/ for any *.exe — a stale installer from an earlier
+//    build lingering in release/ must never be mislabeled as the new version.
+if (!existsSync(join(RELEASE_DIR, 'latest.yml'))) {
   console.error('\n✖ release/latest.yml not found — is `publish` configured in package.json build?')
   process.exit(1)
 }
+const { version: builtVersion, file: installer } = parseLatestYml(readFileSync(join(RELEASE_DIR, 'latest.yml'), 'utf8'))
+const version = builtVersion || JSON.parse(readFileSync('package.json', 'utf8')).version
+if (!installer || !existsSync(join(RELEASE_DIR, installer))) {
+  console.error("\n✖ Could not determine this build's installer from release/latest.yml.")
+  process.exit(1)
+}
+
+// Only this build's files go up: metadata + its installer + its differential blockmap.
+// Older installers still sitting in release/ are ignored (their versions already live
+// on the server from when they were published).
+const wanted = ['latest.yml', installer, `${installer}.blockmap`].filter((f) =>
+  existsSync(join(RELEASE_DIR, f))
+)
 
 // 3) Build this version's entry for the release manifest (releases.json) — the public
 //    download page's version history. The current manifest is fetched from the droplet
 //    (it's the authoritative copy), this version's entry is added/replaced, and the
 //    updated manifest ships with the artifacts.
-const version = JSON.parse(readFileSync('package.json', 'utf8')).version
-const installer = wanted.find((f) => f.endsWith('.exe'))
 const entry = {
   version,
   date: new Date().toISOString(),
   file: installer,
-  size: installer ? statSync(join(RELEASE_DIR, installer)).size : 0,
+  size: statSync(join(RELEASE_DIR, installer)).size,
   ...(notes ? { notes } : {})
 }
 
