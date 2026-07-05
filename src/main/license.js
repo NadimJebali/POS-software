@@ -5,6 +5,8 @@ import { app } from 'electron'
 import { join } from 'path'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { requestActivation, requestRenewal, requestRebind } from './license-client'
+import { verifyLicense } from '../shared/license-format'
+import { applyLicencePolicy } from './licence-policy'
 
 /* global __LICENSE_PUBLIC_KEY__ */
 // Public half of the offline signing key. The private key stays with the vendor.
@@ -77,19 +79,21 @@ function paths() {
 // `nowMs` is the monotonic high-water-mark time (not raw Date.now), so a license
 // with an expiry can't be revived by winding the system clock backwards.
 function verify(licenseString, machineId, nowMs) {
+  let payload
   try {
-    const [pB64, sB64] = String(licenseString).trim().split('.')
-    if (!pB64 || !sB64) return { valid: false, reason: 'License is malformed' }
-    if (!crypto.verify(null, Buffer.from(pB64), PUBLIC_KEY, Buffer.from(sB64, 'base64'))) {
-      return { valid: false, reason: 'License signature is invalid' }
-    }
-    const payload = JSON.parse(Buffer.from(pB64, 'base64').toString('utf8'))
-    if (payload.machineId !== machineId) return { valid: false, reason: 'This license belongs to a different machine' }
-    if (payload.exp && nowMs > payload.exp) return { valid: false, reason: 'This license has expired' }
-    return { valid: true, payload }
-  } catch {
-    return { valid: false, reason: 'License could not be read' }
+    // Shared crypto verify (the vendored licence-protocol module, drift-guarded by the
+    // golden + checksum tests): checks the Ed25519 signature over the base64 payload and
+    // decodes it. Throws 'License is malformed' / 'License signature is invalid'.
+    payload = verifyLicense(licenseString, PUBLIC_KEY)
+  } catch (e) {
+    const reason =
+      e.message === 'License is malformed' || e.message === 'License signature is invalid'
+        ? e.message
+        : 'License could not be read'
+    return { valid: false, reason }
   }
+  // App policy: machine binding + expiry against the monotonic clock.
+  return applyLicencePolicy(payload, machineId, nowMs)
 }
 
 // ---- tamper-proof trial meta (HMAC bound to this machine) ----
