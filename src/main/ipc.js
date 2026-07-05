@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow } from 'electron'
+import { ipcMain, BrowserWindow, app } from 'electron'
 import { printReceipt } from './receipt'
 import { hashPin, verifyPin, needsRehash } from './auth-util'
 import {
@@ -17,6 +17,7 @@ import { createAnalytics } from './analytics'
 // Channels callable without being signed in (licensing + the login flow itself).
 // Everything else requires an authenticated session — enforced in the dispatcher.
 const PUBLIC_CHANNELS = new Set([
+  'app:version',
   'license:status', 'license:activate', 'license:activateByCode', 'license:rebindByCode', 'license:renew',
   'auth:needsSetup', 'auth:setup', 'auth:login', 'auth:logout', 'auth:current', 'auth:users',
   // The login/setup/activate screens render before sign-in and need shop name,
@@ -107,6 +108,9 @@ export function registerIpc(db) {
   const analytics = createAnalytics(db)
 
   const handlers = {
+    // The installed app version (from package.json), shown in Settings.
+    'app:version': () => app.getVersion(),
+
     // ---------------- Licensing ----------------
     'license:status': () => licenseStatus(),
     'license:activate': ({ license }) => licenseActivate(license),

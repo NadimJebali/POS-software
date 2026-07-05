@@ -2,6 +2,9 @@
 const call = (channel, payload) => window.pos[channel](payload)
 
 export const api = {
+  app: {
+    version: () => call('app:version')
+  },
   license: {
     status: () => call('license:status'),
     activate: (license) => call('license:activate', { license }),

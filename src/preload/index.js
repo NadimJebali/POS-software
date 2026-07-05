@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 
 // Whitelisted channels the renderer is allowed to invoke.
 const CHANNELS = [
+  'app:version',
   'license:status', 'license:activate', 'license:activateByCode', 'license:rebindByCode', 'license:renew',
   'auth:needsSetup', 'auth:setup', 'auth:login', 'auth:logout', 'auth:current', 'auth:users',
   'users:list', 'users:create', 'users:update', 'users:remove',

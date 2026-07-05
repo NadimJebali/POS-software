@@ -346,6 +346,11 @@ function LicenseSection() {
   const [boundElsewhere, setBoundElsewhere] = useState(false)
   const [msg, setMsg] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [version, setVersion] = useState('')
+
+  useEffect(() => {
+    api.app.version().then(setVersion).catch(() => {})
+  }, [])
 
   // Activate (or move) this machine with a short code — same online flow as the
   // Activate screen. A raw signed key is never pasted here; the server issues keys.
@@ -396,6 +401,7 @@ function LicenseSection() {
         {status?.state === 'trial' && <span className="text-muted">{t('settings.daysLeft', { n: status.daysLeft })}</span>}
         {status?.name && <span className="text-muted">· {status.name}</span>}
         {status?.exp && <span className="text-muted">· {t('settings.expires', { date: new Date(status.exp).toLocaleDateString() })}</span>}
+        {version && <span className="text-muted">· {t('settings.appVersion', { v: version })}</span>}
       </div>
       <Field label={t('settings.machineId')}>
         <div className="flex items-center gap-2">
