@@ -1,7 +1,14 @@
 # POS Software
 
 A touchscreen point-of-sale desktop app for restaurants & cafés.
-Built with **Electron + React + Vite + Tailwind** and a local **SQLite** database — runs fully offline on a Windows cash register.
+Built with **Electron + React + Vite + Tailwind** and a local **SQLite** database — runs fully offline on a Windows cash register. Licences and background updates are managed by the companion [POS-platform](https://github.com/NadimJebali/POS-platform) cloud server.
+
+![Taking orders on the floor](docs/app-floor.png)
+
+<p align="center">
+  <img src="docs/app-activate.png" width="49%" alt="Online activation by code" />
+  <img src="docs/app-login.png" width="49%" alt="PIN account login" />
+</p>
 
 ## Accounts & roles
 
@@ -56,29 +63,43 @@ npm install
 npm run dev
 ```
 
-## Licensing (selling the app)
+## Licensing & the cloud
 
-The app is protected with **offline, node-locked, signed licenses** — no server required.
+Licences are **Ed25519-signed, machine-bound keys the app verifies offline**, so the
+register keeps working with no internet day to day. Issuing, billing and renewal are
+handled by the companion [POS-platform](https://github.com/NadimJebali/POS-platform)
+server; the app only reaches out to activate and to renew.
 
-- Each install shows a **Machine ID** (derived from the hardware GUID) on the activation screen and in **Setup → License**.
-- The app runs as a **14-day trial**, then requires a license.
-- A license is an Ed25519-**signed token bound to one Machine ID** — it can't be forged (no private key) and won't work if the app/folder is copied to another PC (different Machine ID).
+- **14-day trial**, fully offline and server-invisible, then activation is required.
+- **Activate by code:** the customer types a short `POSK-…` code (from the vendor's
+  admin panel) on the Activate screen. The app calls the server, receives a signed key
+  bound to this machine's **Machine ID**, and **verifies it offline** before storing it
+  — the server is never trusted blindly. (A manual key-paste path remains as a hidden
+  fallback.)
+- **Silent renewal:** the app refreshes its short-lived key in the background — on
+  launch and roughly daily. Failures are silent (it keeps working until the current
+  key's expiry); a calm banner appears only near expiry, or once a subscription lapses
+  into its grace window.
+- **Move to a new machine:** if a code is already active elsewhere, the app offers to
+  move the licence here — self-service rebind, subject to a yearly transfer limit.
+- All policy (renewal window, grace, transfer limit) lives on the server and applies at
+  the next renewal — no app update needed.
 
-### The license generator (vendor tool)
-Issue licenses with the friendly generator — no commands to type:
+The embedded **production public key** is injected at build time from the
+`LICENSE_PUBLIC_KEY` env var or a `license-public.pem` in the project root (both
+gitignored); local dev and tests fall back to a throwaway dev key.
+
+### Offline signed licences (no-server fallback)
+
+The Activate screen also accepts a **pasted** signed licence string with no server at
+all. Issue these with the built-in generator — no commands to type:
+
 - **`Generate License.bat`** — double-click (uses your installed Node), or
-- **`LicenseGenerator.exe`** — standalone, no Node needed. Rebuild it any time with `npm run license:exe`.
+- **`LicenseGenerator.exe`** — standalone, no Node needed. Rebuild with `npm run license:exe`.
 
-It opens a small console: choose **[1] Generate a license**, paste the customer's **Machine ID**, enter a name and validity (days), and it prints the license — with options to **copy to clipboard** or save to a file. (Scriptable too: `LicenseGenerator.exe --machine <ID> --name "X" --days 365`.)
-
-Keep the tool **next to `license-private.pem`** (your SECRET signing key — gitignored, never commit it). The public key is embedded in `src/main/license.js`. To create a fresh key pair, run the tool and choose **[2] Create new signing keys** (this invalidates all previously issued licenses).
-
-### Issuing a license to a customer
-1. The customer installs the app and reads their **Machine ID** from the activation screen (or Setup → License).
-2. You run the generator, paste their Machine ID, set a name/duration → get the license string.
-3. Send it to them; they paste it into **Activate** (or Setup → License). Done.
-
-> Note: this deters casual copying/sharing (the realistic goal for a JS app). To raise the bar further, **code-sign** the build and consider compiling the license check with `bytenode`.
+Choose **[1] Generate a license**, paste the customer's **Machine ID**, set a name and
+validity (days), and it prints the licence (copy to clipboard or save to a file).
+Keep the tool next to `license-private.pem` (your SECRET signing key — gitignored).
 
 ## Build a Windows installer
 
@@ -101,6 +122,24 @@ This produces `release/POS-Software-<version>-setup.exe` — a standard NSIS ins
      ```
 - **App data** lives in `%APPDATA%/pos-software/pos.db` and survives reinstalls/updates.
 - **App icon:** lives at `build/icon.svg`. Edit it and run `npm run icon` to regenerate `build/icon.png` + `build/icon.ico` (used for the app, installer, and shortcuts), then rebuild.
+
+## Auto-update
+
+Packaged builds update themselves from a static HTTPS feed (electron-updater, generic
+provider): **background download, install on quit** — never a forced restart, silent on
+failure, and not gated on licence status. When a build finishes downloading, a small,
+dismissible "Update ready — installs when you quit" notice appears; it never interrupts
+the order flow.
+
+Publish a new version with the wizard:
+
+- **`Publish Update.bat`** (double-click) or `npm run publish:update` — builds the
+  installer and uploads it, the `latest.yml` metadata (with SHA-512), and the release
+  manifest to the feed served by
+  [POS-platform](https://github.com/NadimJebali/POS-platform).
+
+See [`UPDATES.md`](UPDATES.md) for the publish checklist, the one-time production-key
+setup, and the rollback procedure.
 
 ## Data
 
