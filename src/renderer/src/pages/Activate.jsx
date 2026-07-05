@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useLicense } from '../lib/license'
 import { useSettings } from '../lib/settings'
 import { useT } from '../lib/i18n'
+import { refusalAction } from '../../../shared/refusal-actions'
 
 export default function Activate() {
   const { status, activateByCode, rebindByCode } = useLicense()
@@ -37,7 +38,7 @@ export default function Activate() {
       const res = await activateByCode(value)
       if (!res.ok) {
         // Already active on another machine → offer to move it here (rebind).
-        if (res.code === 'machine_limit') setBoundElsewhere(true)
+        if (refusalAction(res.code) === 'offer_rebind') setBoundElsewhere(true)
         else setError(res.message || 'Activation failed')
       }
     } finally {
@@ -53,7 +54,7 @@ export default function Activate() {
       const res = await rebindByCode(code.trim())
       if (!res.ok) {
         setBoundElsewhere(false)
-        setError(res.code === 'transfer_limit' ? t('license.transferLimit') : res.message || 'Move failed')
+        setError(refusalAction(res.code) === 'transfer_limit' ? t('license.transferLimit') : res.message || 'Move failed')
       }
       // On success the provider status flips to 'licensed' and this screen unmounts.
     } finally {

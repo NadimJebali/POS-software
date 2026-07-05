@@ -7,6 +7,7 @@ import { LANGUAGES } from '../lib/locales'
 import { THEMES, applyTheme } from '../lib/themes'
 import { useDialog } from '../components/Dialog'
 import PageHeader from '../components/PageHeader'
+import { refusalAction } from '../../../shared/refusal-actions'
 
 // Live preview of the sample amount under the form's (unsaved) currency settings.
 function preview(form) {
@@ -363,7 +364,7 @@ function LicenseSection() {
       if (res.ok) {
         setCode('')
         setMsg({ ok: true, text: t('settings.licenseActivated') })
-      } else if (res.code === 'machine_limit') {
+      } else if (refusalAction(res.code) === 'offer_rebind') {
         setBoundElsewhere(true) // already active elsewhere → offer to move it here
       } else {
         setMsg({ ok: false, text: res.message })
@@ -383,7 +384,7 @@ function LicenseSection() {
         setCode('')
         setMsg({ ok: true, text: t('settings.licenseActivated') })
       } else {
-        setMsg({ ok: false, text: res.code === 'transfer_limit' ? t('license.transferLimit') : res.message })
+        setMsg({ ok: false, text: refusalAction(res.code) === 'transfer_limit' ? t('license.transferLimit') : res.message })
       }
     } finally {
       setBusy(false)
