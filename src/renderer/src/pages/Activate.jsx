@@ -4,12 +4,10 @@ import { useSettings } from '../lib/settings'
 import { useT } from '../lib/i18n'
 
 export default function Activate() {
-  const { status, activate, activateByCode, rebindByCode } = useLicense()
+  const { status, activateByCode, rebindByCode } = useLicense()
   const { settings } = useSettings()
   const { t } = useT()
   const [code, setCode] = useState('')
-  const [license, setLicense] = useState('')
-  const [showPaste, setShowPaste] = useState(false)
   const [boundElsewhere, setBoundElsewhere] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -28,26 +26,20 @@ export default function Activate() {
     }
   }
 
-  // Activate online with the short code; falls back to a pasted key when expanded.
+  // Activate online with the short code. The server issues the signed key; the app
+  // verifies it offline before storing it. No raw key is ever pasted here.
   const submit = async () => {
-    const usingCode = !showPaste
-    const value = (usingCode ? code : license).trim()
+    const value = code.trim()
     if (!value) return
     setBusy(true)
     setError('')
     try {
-      if (usingCode) {
-        const res = await activateByCode(value)
-        if (!res.ok) {
-          // Already active on another machine → offer to move it here (rebind).
-          if (res.code === 'machine_limit') setBoundElsewhere(true)
-          else setError(res.message || 'Activation failed')
-        }
-      } else {
-        await activate(value) // paste-key path still throws on failure
+      const res = await activateByCode(value)
+      if (!res.ok) {
+        // Already active on another machine → offer to move it here (rebind).
+        if (res.code === 'machine_limit') setBoundElsewhere(true)
+        else setError(res.message || 'Activation failed')
       }
-    } catch (e) {
-      setError(e.message || 'Activation failed')
     } finally {
       setBusy(false)
     }
@@ -74,8 +66,6 @@ export default function Activate() {
     status?.state === 'expired'
       ? status.reason || 'Enter your activation code to continue.'
       : 'Your trial has ended. Enter your activation code to keep using the app.'
-
-  const canSubmit = (showPaste ? license.trim() : code.trim()) && !busy
 
   return (
     <div className="h-screen flex items-center justify-center p-8">
@@ -125,45 +115,22 @@ export default function Activate() {
           </div>
         ) : (
           <>
-            {!showPaste ? (
-              <label className="block">
-                <span className="text-muted text-sm">Enter your activation code</span>
-                <input
-                  className="input mt-1.5 font-display text-2xl tracking-[0.2em] text-center uppercase"
-                  placeholder="POSK-XXXX-XXXX-XXXX"
-                  value={code}
-                  autoFocus
-                  onChange={(e) => setCode(e.target.value.toUpperCase())}
-                  onKeyDown={(e) => e.key === 'Enter' && submit()}
-                />
-              </label>
-            ) : (
-              <label className="block">
-                <span className="text-muted text-sm">Paste your license key</span>
-                <textarea
-                  className="input mt-1.5 font-mono text-sm h-28 resize-none"
-                  placeholder="xxxxxxxx.xxxxxxxx"
-                  value={license}
-                  autoFocus
-                  onChange={(e) => setLicense(e.target.value)}
-                />
-              </label>
-            )}
+            <label className="block">
+              <span className="text-muted text-sm">Enter your activation code</span>
+              <input
+                className="input mt-1.5 font-display text-2xl tracking-[0.2em] text-center uppercase"
+                placeholder="POSK-XXXX-XXXX-XXXX"
+                value={code}
+                autoFocus
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
+                onKeyDown={(e) => e.key === 'Enter' && submit()}
+              />
+            </label>
 
             {error && <p className="text-berry text-sm mt-2">{error}</p>}
 
-            <button className="btn-accent w-full mt-4 text-xl py-4" disabled={!canSubmit} onClick={submit}>
+            <button className="btn-accent w-full mt-4 text-xl py-4" disabled={!code.trim() || busy} onClick={submit}>
               {busy ? 'Activating…' : 'Activate'}
-            </button>
-
-            <button
-              className="btn-ghost w-full mt-2 text-sm py-3 min-h-[44px]"
-              onClick={() => {
-                setShowPaste((v) => !v)
-                setError('')
-              }}
-            >
-              {showPaste ? 'Use an activation code instead' : 'Have a license key instead?'}
             </button>
           </>
         )}

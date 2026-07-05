@@ -340,22 +340,46 @@ function BackupSection() {
 }
 
 function LicenseSection() {
-  const { status, activate } = useLicense()
+  const { status, activateByCode, rebindByCode } = useLicense()
   const { t } = useT()
-  const [license, setLicense] = useState('')
+  const [code, setCode] = useState('')
+  const [boundElsewhere, setBoundElsewhere] = useState(false)
   const [msg, setMsg] = useState(null)
   const [busy, setBusy] = useState(false)
 
-  const apply = async () => {
-    if (!license.trim()) return
+  // Activate (or move) this machine with a short code — same online flow as the
+  // Activate screen. A raw signed key is never pasted here; the server issues keys.
+  const activate = async () => {
+    if (!code.trim()) return
     setBusy(true)
     setMsg(null)
     try {
-      await activate(license.trim())
-      setLicense('')
-      setMsg({ ok: true, text: t('settings.licenseActivated') })
-    } catch (e) {
-      setMsg({ ok: false, text: e.message })
+      const res = await activateByCode(code.trim())
+      if (res.ok) {
+        setCode('')
+        setMsg({ ok: true, text: t('settings.licenseActivated') })
+      } else if (res.code === 'machine_limit') {
+        setBoundElsewhere(true) // already active elsewhere → offer to move it here
+      } else {
+        setMsg({ ok: false, text: res.message })
+      }
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const move = async () => {
+    setBusy(true)
+    setMsg(null)
+    try {
+      const res = await rebindByCode(code.trim())
+      setBoundElsewhere(false)
+      if (res.ok) {
+        setCode('')
+        setMsg({ ok: true, text: t('settings.licenseActivated') })
+      } else {
+        setMsg({ ok: false, text: res.code === 'transfer_limit' ? t('license.transferLimit') : res.message })
+      }
     } finally {
       setBusy(false)
     }
@@ -379,18 +403,34 @@ function LicenseSection() {
           <button className="btn-ghost py-2 px-3" onClick={() => navigator.clipboard?.writeText(status?.machineId || '')}>{t('settings.copy')}</button>
         </div>
       </Field>
-      <Field label={t('settings.enterLicense')}>
-        <textarea
-          className="input font-mono text-sm h-24 resize-none"
-          value={license}
-          placeholder={t('settings.pasteLicense')}
-          onChange={(e) => setLicense(e.target.value)}
+      <Field label={t('settings.enterCode')}>
+        <input
+          className="input font-display text-lg tracking-[0.15em] uppercase"
+          value={code}
+          placeholder="POSK-XXXX-XXXX-XXXX"
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+          onKeyDown={(e) => e.key === 'Enter' && !boundElsewhere && activate()}
         />
       </Field>
       {msg && <p className={`text-sm ${msg.ok ? 'text-mint' : 'text-berry'}`}>{msg.text}</p>}
-      <button className="btn-accent" disabled={!license.trim() || busy} onClick={apply}>
-        {busy ? t('settings.activating') : t('settings.activateLicense')}
-      </button>
+      {boundElsewhere ? (
+        <div className="rounded-2xl bg-ember/10 border border-ember/30 p-4">
+          <p className="font-semibold text-ember">{t('license.moveTitle')}</p>
+          <p className="text-muted text-sm mt-1">{t('license.movePrompt')}</p>
+          <div className="flex gap-2 mt-3">
+            <button className="btn-ghost min-h-[44px]" disabled={busy} onClick={() => setBoundElsewhere(false)}>
+              {t('common.cancel')}
+            </button>
+            <button className="btn-accent min-h-[44px]" disabled={busy} onClick={move}>
+              {busy ? t('license.moving') : t('license.moveConfirm')}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button className="btn-accent" disabled={!code.trim() || busy} onClick={activate}>
+          {busy ? t('settings.activating') : t('settings.activateLicense')}
+        </button>
+      )}
     </Section>
   )
 }

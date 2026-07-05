@@ -133,7 +133,7 @@ export const locales = {
       importTitle: 'Import database', importMsg: 'This replaces ALL current data with the chosen backup and restarts the app. A copy of the current data is saved first. Continue?', importConfirm: 'Choose file & import', importFailed: 'Import failed',
       license: 'License', licLicensed: 'Licensed', licTrial: 'Trial', licUnlicensed: 'Not licensed', licExpired: 'Expired',
       daysLeft: '{n} days left', expires: 'expires {date}', machineId: 'Machine ID (send to vendor for a license)', copy: 'Copy',
-      enterLicense: 'Enter / renew license', pasteLicense: 'paste license here', licenseActivated: 'License activated', activating: 'Activating…', activateLicense: 'Activate license'
+      enterLicense: 'Enter / renew license', pasteLicense: 'paste license here', licenseActivated: 'License activated', activating: 'Activating…', activateLicense: 'Activate license', enterCode: 'Enter your activation code'
     }
   },
 
@@ -269,7 +269,7 @@ export const locales = {
       importTitle: 'Importer la base de données', importMsg: 'Ceci remplace TOUTES les données actuelles par la sauvegarde choisie et redémarre l’application. Une copie des données actuelles est enregistrée au préalable. Continuer ?', importConfirm: 'Choisir le fichier et importer', importFailed: 'Échec de l’import',
       license: 'Licence', licLicensed: 'Sous licence', licTrial: 'Essai', licUnlicensed: 'Non licencié', licExpired: 'Expirée',
       daysLeft: '{n} jours restants', expires: 'expire le {date}', machineId: 'ID machine (à envoyer au vendeur pour une licence)', copy: 'Copier',
-      enterLicense: 'Saisir / renouveler la licence', pasteLicense: 'collez la licence ici', licenseActivated: 'Licence activée', activating: 'Activation…', activateLicense: 'Activer la licence'
+      enterLicense: 'Saisir / renouveler la licence', pasteLicense: 'collez la licence ici', licenseActivated: 'Licence activée', activating: 'Activation…', activateLicense: 'Activer la licence', enterCode: 'Saisissez votre code d’activation'
     }
   },
 
@@ -405,7 +405,7 @@ export const locales = {
       importTitle: 'استيراد قاعدة البيانات', importMsg: 'سيستبدل هذا كل البيانات الحالية بالنسخة المختارة ويعيد تشغيل التطبيق. تُحفظ نسخة من البيانات الحالية أولاً. متابعة؟', importConfirm: 'اختر الملف واستورد', importFailed: 'فشل الاستيراد',
       license: 'الترخيص', licLicensed: 'مُرخّص', licTrial: 'تجربة', licUnlicensed: 'غير مُرخّص', licExpired: 'منتهٍ',
       daysLeft: 'تبقّى {n} يوم', expires: 'ينتهي في {date}', machineId: 'معرّف الجهاز (أرسله للبائع للحصول على ترخيص)', copy: 'نسخ',
-      enterLicense: 'إدخال / تجديد الترخيص', pasteLicense: 'الصق الترخيص هنا', licenseActivated: 'تم تفعيل الترخيص', activating: 'جارٍ التفعيل…', activateLicense: 'تفعيل الترخيص'
+      enterLicense: 'إدخال / تجديد الترخيص', pasteLicense: 'الصق الترخيص هنا', licenseActivated: 'تم تفعيل الترخيص', activating: 'جارٍ التفعيل…', activateLicense: 'تفعيل الترخيص', enterCode: 'أدخل رمز التفعيل'
     }
   }
 }
