@@ -7,8 +7,9 @@ import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { requestActivation, requestRenewal, requestRebind } from './license-client'
 import { verifyLicense } from '../shared/license-format'
 import { applyLicencePolicy } from './licence-policy'
+import { makeKeyring } from './keyring'
 
-/* global __LICENSE_PUBLIC_KEY__ */
+/* global __LICENSE_PUBLIC_KEY__, __LICENSE_NEXT_KEY__, __LICENSE_NEXT_KID__ */
 // Public half of the offline signing key. The private key stays with the vendor.
 //
 // Production builds inject the real key at build time (electron-vite `define`, fed by
@@ -22,6 +23,16 @@ MCowBQYDK2VwAyEAMyaX0qTD4ii0CHKaWj55jR2lPQFChsPPscvOvk18lY8=
 
 const PUBLIC_KEY =
   (typeof __LICENSE_PUBLIC_KEY__ !== 'undefined' && __LICENSE_PUBLIC_KEY__) || DEV_PUBLIC_KEY
+
+// Verifying keyring: the current key (legacy — verifies every pre-kid licence in the
+// field) plus, during a rotation, a `next` key injected at build time under its kid. Both
+// verify, so a new signing key can ship in an app update before the server switches to it.
+const NEXT_KEY = (typeof __LICENSE_NEXT_KEY__ !== 'undefined' && __LICENSE_NEXT_KEY__) || ''
+const NEXT_KID = (typeof __LICENSE_NEXT_KID__ !== 'undefined' && __LICENSE_NEXT_KID__) || ''
+const KEYRING = makeKeyring({
+  current: PUBLIC_KEY,
+  next: NEXT_KEY && NEXT_KID ? { kid: NEXT_KID, key: NEXT_KEY } : undefined
+})
 
 const TRIAL_DAYS = 14
 
@@ -83,8 +94,9 @@ function verify(licenseString, machineId, nowMs) {
   try {
     // Shared crypto verify (the vendored licence-protocol module, drift-guarded by the
     // golden + checksum tests): checks the Ed25519 signature over the base64 payload and
-    // decodes it. Throws 'License is malformed' / 'License signature is invalid'.
-    payload = verifyLicense(licenseString, PUBLIC_KEY)
+    // decodes it, selecting the key from the keyring by the payload's kid (legacy key for
+    // pre-kid licences). Throws 'License is malformed' / 'License signature is invalid'.
+    payload = verifyLicense(licenseString, KEYRING)
   } catch (e) {
     const reason =
       e.message === 'License is malformed' || e.message === 'License signature is invalid'

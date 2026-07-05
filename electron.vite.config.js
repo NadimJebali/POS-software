@@ -16,11 +16,22 @@ function resolveLicensePublicKey() {
   return ''
 }
 
+// Optional "next" signing key during a key rotation. Set LICENSE_NEXT_KEY (PEM) and
+// LICENSE_NEXT_KID to bake a second trusted key into the build under its id, so licences
+// signed by the new key verify before the server cuts over. Empty when not rotating.
+function resolveLicenseNextKey() {
+  const fromEnv = process.env.LICENSE_NEXT_KEY
+  if (fromEnv && fromEnv.includes('BEGIN PUBLIC KEY')) return fromEnv.replace(/\\n/g, '\n')
+  return ''
+}
+
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
     define: {
-      __LICENSE_PUBLIC_KEY__: JSON.stringify(resolveLicensePublicKey())
+      __LICENSE_PUBLIC_KEY__: JSON.stringify(resolveLicensePublicKey()),
+      __LICENSE_NEXT_KEY__: JSON.stringify(resolveLicenseNextKey()),
+      __LICENSE_NEXT_KID__: JSON.stringify(process.env.LICENSE_NEXT_KID || '')
     },
     build: {
       rollupOptions: {
