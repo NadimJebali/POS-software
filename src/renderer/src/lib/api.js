@@ -13,7 +13,10 @@ export const api = {
     renew: () => call('license:renew')
   },
   updates: {
-    // Subscribe to the "update downloaded" notice; returns an unsubscribe fn.
+    // Whether an update has already finished downloading (queried on mount, so a
+    // download that completed before the UI subscribed is still caught).
+    pending: () => call('update:pending'),
+    // Subscribe to the live "update downloaded" notice; returns an unsubscribe fn.
     onReady: (cb) => window.pos.onUpdateReady(cb)
   },
   auth: {

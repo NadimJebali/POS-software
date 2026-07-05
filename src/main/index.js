@@ -8,6 +8,12 @@ import { parseSettings } from '../shared/settings'
 
 let db
 
+// Set once a background update has finished downloading (and stays set). The renderer
+// both subscribes to the live 'update:ready' push AND queries this on mount, so the
+// notice still appears when the download completed before the UI was listening — e.g. an
+// update staged in a previous session that fires early on the next launch.
+let pendingUpdate = null
+
 // Dev runs against the Vite server; production loads built files from disk.
 const isDev = !!process.env.ELECTRON_RENDERER_URL
 
@@ -55,15 +61,21 @@ app.whenReady().then(async () => {
   // The cashier pushes presentation snapshots; relay them to the customer window.
   ipcMain.handle('customer:present', (_e, { snapshot }) => pushCustomerState(snapshot))
 
+  // Lets the renderer ask, on mount, whether an update is already downloaded — so it
+  // catches a download that finished before the UI subscribed to the push below.
+  ipcMain.handle('update:pending', () => pendingUpdate)
+
   // Background auto-update (packaged builds only — dev has no update feed). Fire-and-
   // forget: it never blocks startup, and a failure is silent. When a build finishes
-  // downloading we nudge the renderer to show a small "installs when you quit" notice;
-  // the install itself happens on quit (autoInstallOnAppQuit), never a forced restart.
+  // downloading we record it (for the query above) and nudge the renderer to show a
+  // small "installs when you quit" notice; the install happens on quit
+  // (autoInstallOnAppQuit), never a forced restart.
   if (!isDev) {
     initAutoUpdate(autoUpdater, {
       onReady: (info) => {
+        pendingUpdate = { version: info?.version || null }
         const win = getMainWindow()
-        if (win && !win.isDestroyed()) win.webContents.send('update:ready', { version: info?.version || null })
+        if (win && !win.isDestroyed()) win.webContents.send('update:ready', pendingUpdate)
       }
     })
   }

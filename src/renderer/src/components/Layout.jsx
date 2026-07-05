@@ -57,10 +57,15 @@ export default function Layout() {
   const bannerDate = (ms) =>
     new Date(ms).toLocaleDateString(lang, { day: '2-digit', month: 'short', year: 'numeric' })
 
-  // "Update downloaded" notice — appears only after a completed background download;
-  // the install happens on quit. Dismissible so it never nags mid-shift.
+  // "Update downloaded" notice — appears after a completed background download; the
+  // install happens on quit. Dismissible so it never nags mid-shift. We query on mount
+  // (catches a download that finished before this subscribed) AND listen for the live
+  // push, so the notice can't be missed to a race.
   const [updateReady, setUpdateReady] = useState(false)
-  useEffect(() => api.updates.onReady(() => setUpdateReady(true)), [])
+  useEffect(() => {
+    api.updates.pending().then((info) => { if (info) setUpdateReady(true) }).catch(() => {})
+    return api.updates.onReady(() => setUpdateReady(true))
+  }, [])
 
   // Low-stock indicator for the Menu nav item (admins only).
   useEffect(() => {
