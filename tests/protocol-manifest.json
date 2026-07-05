@@ -1,5 +1,5 @@
 {
-  "src/shared/license-format.js": "128e2cc41c937a335d6f620919f5e7488bfb6275ff0a52300a2d561368aaf2d7",
+  "src/shared/license-format.js": "e0a51b7e21f6ad3c553ca857a5c52d17c83ecbda1cb57815f1a84caa6154c482",
   "src/shared/refusal-codes.js": "0ee10765b5012c4627aac0233d35bfffd56714c47aeec9d1ff88ff9461cd1a4b",
   "tests/golden-licence.js": "35c42df7a6210e30c0d34fed9931b7256a2805baa3ba90b853329784da1d9b3f"
 }
