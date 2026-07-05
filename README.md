@@ -82,12 +82,27 @@ server; the app only reaches out to activate and to renew.
   into its grace window.
 - **Move to a new machine:** if a code is already active elsewhere, the app offers to
   move the licence here — self-service rebind, subject to a yearly transfer limit.
+- **Clear refusals:** when the server declines (machine limit reached, transfer limit,
+  subscription lapsed, …) the reason comes back as a shared refusal code the app maps to
+  a concrete next step (offer a rebind, show the message) rather than a raw error.
 - All policy (renewal window, grace, transfer limit) lives on the server and applies at
   the next renewal — no app update needed.
 
 The embedded **production public key** is injected at build time from the
 `LICENSE_PUBLIC_KEY` env var or a `license-public.pem` in the project root (both
 gitignored); local dev and tests fall back to a throwaway dev key.
+
+**Key rotation without a flag day:** the app verifies against a **keyring** — the current
+public key plus an optional *next* key (`LICENSE_NEXT_KEY` / `LICENSE_NEXT_KID` at build
+time). Each signed licence names the key that signed it (`kid`), so the server can start
+issuing under a new key while already-deployed apps still accept both. No coordinated
+cutover, no bricked registers mid-rotation.
+
+The verification code, refusal-code table and drift-tripwire fixtures are **not
+hand-copied** — they are the single source of truth in
+[POS-platform](https://github.com/NadimJebali/POS-platform), *vendored* into this repo
+(`src/shared/`) with a checksum manifest and cross-repo golden tests that fail loudly if
+the two ever drift.
 
 ### Offline signed licences (no-server fallback)
 
@@ -156,8 +171,13 @@ src/
     db.js      SQLite (sql.js/WASM) schema, seed + storage adapter
     ipc.js     all data operations + analytics queries
     receipt.js receipt rendering + printing
+    license.js keyring verify (shared module) + renewal/rebind policy
   preload/
     index.js   secure contextBridge (window.pos)
+  shared/      isomorphic helpers used by main + renderer
+    license-format.js, refusal-codes.js  vendored from POS-platform (checksum-pinned)
+    refusal-actions.js, license-banner.js  app-side licence UX policy
+    money.js, settings.js, split.js, customer.js, i18n.js
   renderer/    React UI
     src/
       pages/       Floor, Order, Checkout, Products, TablesManage, Analytics, History, Settings
