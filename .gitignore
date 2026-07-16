@@ -15,3 +15,10 @@ license-public.pem
 # License generator build artifacts (rebuild with: npm run license:exe)
 LicenseGenerator.exe
 tools/sea-prep.blob
+
+# Secrets
+.env
+.env.*
+!.env*.example
+*.pem
+*.key
